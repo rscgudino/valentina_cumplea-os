@@ -785,7 +785,7 @@ export default function App() {
     <div
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
-      className="relative w-full h-screen bg-[#040508] flex items-center justify-center overflow-hidden select-none touch-none"
+      className="relative w-full h-[100dvh] min-h-[100dvh] bg-[#040508] flex items-center justify-center overflow-hidden select-none touch-none"
     >
       {/* Background Birthday Song (musica.mp3) */}
       <audio
@@ -1050,7 +1050,7 @@ export default function App() {
               SLIDESHOW CONTAINER (ACTIVE WHEN hasStarted = true)
               ------------------------------------------------------- */}
           <div
-            className={`absolute inset-0 flex flex-col justify-between p-4 pt-16 pb-4 text-center select-none overflow-hidden transition-all duration-700 ease-in-out ${
+            className={`absolute inset-0 flex flex-col justify-between p-3 pt-14 pb-8 sm:pb-6 text-center select-none overflow-hidden transition-all duration-700 ease-in-out ${
               hasStarted
                 ? 'opacity-100 scale-100 pointer-events-auto z-20 translate-y-0'
                 : 'opacity-0 scale-105 pointer-events-none z-0 translate-y-2'
@@ -1405,14 +1405,14 @@ export default function App() {
                 </div>
 
                 {/* Trio Display: YoYa Sparkle + Real Valentina */}
-                <div className="relative w-64 h-40 flex items-center justify-center my-1">
-                  <div className="absolute left-2 w-28 h-36 rounded-2xl overflow-hidden border-2 border-white/30 shadow-xl -rotate-6 z-10 bg-black">
+                <div className="relative w-56 h-32 sm:h-38 flex items-center justify-center my-0.5">
+                  <div className="absolute left-2 w-24 sm:w-28 h-28 sm:h-34 rounded-2xl overflow-hidden border-2 border-white/30 shadow-xl -rotate-6 z-10 bg-black">
                     <img src={yoyaFrontImg} alt="YoYa Coat" className="w-full h-full object-cover object-top" />
                   </div>
-                  <div className="absolute right-2 w-28 h-36 rounded-2xl overflow-hidden border-2 border-white/30 shadow-xl rotate-6 z-20 bg-black">
+                  <div className="absolute right-2 w-24 sm:w-28 h-28 sm:h-34 rounded-2xl overflow-hidden border-2 border-white/30 shadow-xl rotate-6 z-20 bg-black">
                     <img src={yoyaEarmuffsImg} alt="YoYa Earmuffs" className="w-full h-full object-cover object-top" />
                   </div>
-                  <div className="absolute bottom-0 w-32 h-38 rounded-2xl overflow-hidden border-3 border-pink-400 shadow-[0_10px_35px_rgba(244,114,182,0.8)] z-30 bg-black">
+                  <div className="absolute bottom-0 w-28 sm:w-32 h-32 sm:h-38 rounded-2xl overflow-hidden border-3 border-pink-400 shadow-[0_10px_35px_rgba(244,114,182,0.8)] z-30 bg-black">
                     <img
                       src={photoSrc}
                       onError={() => setPhotoSrc(vipPortraitFallback)}
@@ -1512,39 +1512,40 @@ export default function App() {
             </div>
 
             {/* =========================================================
-                BOTTOM INTERACTIVE WISHES / REACTIONS BAR
+                BOTTOM INTERACTIVE WISHES / REACTIONS BAR (ELEVATED DOCK)
                 ========================================================= */}
-            <div className="w-full flex items-center justify-between pt-1 px-1 z-30">
-              <div className="flex items-center gap-1.5 bg-black/50 backdrop-blur-md px-2 py-1 rounded-full border border-white/15">
-                <span className="text-[9px] font-bold text-slate-400 hidden sm:inline">Deseos:</span>
+            <div className="w-full flex items-center justify-between px-2.5 py-1.5 mb-2 sm:mb-1 bg-black/80 backdrop-blur-xl rounded-2xl border border-white/20 shadow-[0_10px_30px_rgba(0,0,0,0.85)] z-30">
+              <div className="flex items-center gap-1 sm:gap-1.5">
+                <span className="text-[10px] font-extrabold text-pink-300 hidden xs:inline pr-1">Deseos:</span>
                 {REACTIONS.map((r, i) => (
                   <button
                     key={i}
                     onClick={(e) => handleSendReaction(r, e)}
                     title={r.label}
-                    className="w-6 h-6 rounded-full hover:scale-125 active:scale-95 transition-transform flex items-center justify-center text-sm cursor-pointer"
+                    className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 active:scale-125 transition-transform flex items-center justify-center text-sm cursor-pointer shadow-sm"
                   >
                     {r.emoji}
                   </button>
                 ))}
               </div>
 
-              {/* Navigation controls */}
-              <div className="flex items-center gap-1">
+              {/* Navigation controls & Page counter */}
+              <div className="flex items-center gap-1 bg-white/10 px-2 py-1 rounded-xl border border-white/15">
                 <button
                   onClick={() => {
                     if (currentSlide > 0) goToSlide(currentSlide - 1);
                   }}
                   disabled={currentSlide === 0}
-                  className={`p-1.5 rounded-full bg-black/40 border border-white/15 text-white active:scale-95 transition-all ${
-                    currentSlide === 0 ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'
+                  className={`p-1 rounded-lg bg-black/40 border border-white/20 text-white active:scale-90 transition-all ${
+                    currentSlide === 0 ? 'opacity-25 cursor-not-allowed' : 'cursor-pointer hover:bg-pink-600/40'
                   }`}
+                  aria-label="Diapositiva anterior"
                 >
                   <ChevronLeft className="w-3.5 h-3.5" />
                 </button>
 
-                <span className="text-[10px] font-bold text-slate-300 px-1">
-                  {currentSlide + 1}/{SLIDE_DURATIONS.length}
+                <span className="text-xs font-black text-white px-1 tracking-wider whitespace-nowrap">
+                  {currentSlide + 1} <span className="text-slate-400 font-normal">/</span> {SLIDE_DURATIONS.length}
                 </span>
 
                 <button
@@ -1552,9 +1553,10 @@ export default function App() {
                     if (currentSlide < SLIDE_DURATIONS.length - 1) goToSlide(currentSlide + 1);
                   }}
                   disabled={currentSlide === SLIDE_DURATIONS.length - 1}
-                  className={`p-1.5 rounded-full bg-black/40 border border-white/15 text-white active:scale-95 transition-all ${
-                    currentSlide === SLIDE_DURATIONS.length - 1 ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'
+                  className={`p-1 rounded-lg bg-black/40 border border-white/20 text-white active:scale-90 transition-all ${
+                    currentSlide === SLIDE_DURATIONS.length - 1 ? 'opacity-25 cursor-not-allowed' : 'cursor-pointer hover:bg-pink-600/40'
                   }`}
+                  aria-label="Diapositiva siguiente"
                 >
                   <ChevronRight className="w-3.5 h-3.5" />
                 </button>

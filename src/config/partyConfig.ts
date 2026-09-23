@@ -36,10 +36,10 @@ export const PARTY_CONFIG = {
   bancoNombre: 'Mercado Pago',
   titularCuenta: 'Mamá de Valentina',
   gustosFavoritos: [
-    'Ropa & Accesorios Glam (Talle 10-12)',
-    'Calzado Fashion (Talle 34)',
-    'Muñecas YoYa / Glitter / Accesorios de moda',
-    'Lluvia de sobres o transferencia para su alcancía'
+    'Ropa & Accesorios de Moda Glam 👗✨',
+    'Muñecas YoYa / Glitter / Accesorios Sparkle 💖',
+    'Maquillaje infantil, bijouterie y sorpresas 🎀',
+    'Lluvia de sobres o transferencia para su alcancía 🎁'
   ],
 
   // Diseñador & Branding Ondigu
