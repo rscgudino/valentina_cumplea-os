@@ -2,5 +2,7 @@
   "name": "Valentina Fashion Birthday — 9 Años",
   "description": "Invitación digital interactiva, animada y cinematográfica para el 9no cumpleaños de Valentina.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
