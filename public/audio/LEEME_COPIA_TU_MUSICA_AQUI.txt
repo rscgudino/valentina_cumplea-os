@@ -1,0 +1,7 @@
+INSTRUCCIONES PARA AGREGAR LA MÚSICA:
+======================================
+1. Pega tu archivo de audio en esta misma carpeta (public/audio/).
+2. Nómbralo exactamente: musica.mp3
+   (Ruta completa: public/audio/musica.mp3)
+
+Al abrir la invitación y tocar el botón "ABRIR INVITACIÓN", comenzará a sonar automáticamente para todos los invitados.

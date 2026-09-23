@@ -13,64 +13,23 @@ import {
   MapPin,
   Home,
   Share2,
-  Settings,
-  X,
   CheckCircle2,
   Play,
   Pause,
   RotateCcw,
   ChevronLeft,
   ChevronRight,
-  MessageCircle,
-  Music,
-  Upload
+  MessageCircle
 } from 'lucide-react';
 
-// Visual assets: Valentina and her favorite doll YoYa: Sparkle (permanently integrated)
+// Party Configuration (Easily edit audio path, photos, and texts here)
+import { PARTY_CONFIG } from './config/partyConfig';
+
+// Visual assets: Valentina and her favorite doll YoYa: Sparkle
 import yoyaFrontImg from './assets/images/yoya_sparkle_front_1790183065047.jpg';
 import yoyaPortraitImg from './assets/images/yoya_sparkle_portrait_1790183121361.jpg';
 import yoyaEarmuffsImg from './assets/images/yoya_sparkle_earmuffs_1790183089432.jpg';
-import vipPortraitImg from './assets/images/valentina_portrait_vip_1790182204136.jpg';
-
-interface PartyDetails {
-  nombre: string;
-  edad: number;
-  subtitulo: string;
-  fecha: string;
-  hora: string;
-  lugar: string;
-  direccion: string;
-  dressCode: string;
-  regalos: string;
-  mensajeEspecial: string;
-  detalles: string;
-  whatsapp: string;
-  whatsappDisplay: string;
-  whatsappMessage: string;
-  mapsUrl: string;
-  countdownDate: string;
-  audioUrl?: string;
-}
-
-const initialPartyDetails: PartyDetails = {
-  nombre: 'VALENTINA',
-  edad: 9,
-  subtitulo: 'Fashion Birthday · YoYa: Sparkle',
-  fecha: 'Sábado 3 de Octubre',
-  hora: 'De 17:00 a 20:00 hs',
-  lugar: 'Casa de Valentina',
-  direccion: 'Calle Manuel Ocampo 2443',
-  dressCode: 'Fashion Chic · Toque Denim, Blanco o Plateado 💎',
-  regalos: 'Tu presencia es nuestro mejor regalo 🎁',
-  mensajeEspecial: 'Porque los 9 años se celebran una sola vez... ¡y queremos que seas parte de este momento especial!',
-  detalles: 'Habrá diversión, juegos, risas y muchas sorpresas 🎂🎈✨',
-  whatsapp: '5491164270908',
-  whatsappDisplay: '11 6427-0908',
-  whatsappMessage: '¡Hola! Confirmo con mucha alegría mi asistencia al 9no cumpleaños de Valentina en Calle Manuel Ocampo 2443 🎀🎂🎉',
-  mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Calle+Manuel+Ocampo+2443',
-  countdownDate: '2026-10-03T17:00:00',
-  audioUrl: '/assets/audio/cancion_valentina.mp3',
-};
+import vipPortraitFallback from './assets/images/valentina_portrait_vip_1790182204136.jpg';
 
 // Reading durations for each slide in milliseconds
 const SLIDE_DURATIONS = [
@@ -83,20 +42,10 @@ const SLIDE_DURATIONS = [
 ];
 
 export default function App() {
-  const [party, setParty] = useState<PartyDetails>(() => {
-    try {
-      const saved = localStorage.getItem('valentina_invitation_v7');
-      if (saved) {
-        return {
-          ...initialPartyDetails,
-          ...JSON.parse(saved),
-          whatsapp: '5491164270908',
-          whatsappDisplay: '11 6427-0908',
-        };
-      }
-    } catch (e) {}
-    return initialPartyDetails;
-  });
+  const party = PARTY_CONFIG;
+
+  // Active portrait photo with automatic fallback
+  const [photoSrc, setPhotoSrc] = useState<string>(party.valentinaPhotoUrl || vipPortraitFallback);
 
   // Presentation State
   const [hasStarted, setHasStarted] = useState<boolean>(false);
@@ -106,23 +55,17 @@ export default function App() {
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [ambientGlow, setAmbientGlow] = useState<boolean>(false);
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
-  const [showSettings, setShowSettings] = useState<boolean>(false);
-  const [uploadSuccess, setUploadSuccess] = useState<boolean>(false);
 
   // References
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const confettiListRef = useRef<any[]>([]);
   const particlesListRef = useRef<any[]>([]);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
-  const audioInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Web Audio Synthesizer (Fallback in case MP3 is still loading)
+  // Web Audio Synthesizer (Fallback in case user hasn't copied the MP3 file yet)
   const audioCtxRef = useRef<AudioContext | null>(null);
   const synthIntervalRef = useRef<number | null>(null);
   const synthGainRef = useRef<GainNode | null>(null);
-
-  // Active portrait image: Permanently built-in Valentina VIP Portrait
-  const activePortrait = vipPortraitImg;
 
   // Real-time Countdown state
   const [timeLeft, setTimeLeft] = useState({
@@ -131,13 +74,6 @@ export default function App() {
     minutes: 0,
     seconds: 0,
   });
-
-  // Save changes to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem('valentina_invitation_v7', JSON.stringify(party));
-    } catch (e) {}
-  }, [party]);
 
   // Real-time Countdown calculation
   useEffect(() => {
@@ -282,7 +218,7 @@ export default function App() {
     };
   }, []);
 
-  // Web Audio Synthesizer (Upbeat Pop Song at 128 BPM - Fallback)
+  // Web Audio Synthesizer (Upbeat Happy Pop Celebration Melody - Fallback)
   const initWebAudio = () => {
     if (audioCtxRef.current) return;
     try {
@@ -381,15 +317,14 @@ export default function App() {
     }
   };
 
-  // Play official song
-  const playOfficialMusic = () => {
+  // Play music (Starts MP3 track automatically, or fallback if MP3 is not yet created)
+  const playPartyMusic = () => {
     if (audioElementRef.current) {
       audioElementRef.current.play()
         .then(() => {
           stopSynthCelebration();
         })
         .catch(() => {
-          // If HTML5 audio is blocked or file not ready, use synthesizer
           initWebAudio();
           startSynthCelebration();
         });
@@ -413,7 +348,7 @@ export default function App() {
     }
 
     if (!nextMuted && hasStarted) {
-      playOfficialMusic();
+      playPartyMusic();
     }
   };
 
@@ -461,48 +396,18 @@ export default function App() {
     setCurrentSlide(0);
     setSlideProgress(0);
     triggerConfetti(70);
-    playOfficialMusic();
+    playPartyMusic();
   };
 
   // Replay presentation from slide 0
   const handleReplay = () => {
     goToSlide(0);
-    playOfficialMusic();
+    playPartyMusic();
   };
 
-  // Admin one-time upload: Saves MP3 file permanently to project server and local state
-  const handleSaveAudioFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      // 1. Send file to Vite dev server to save permanently in public/assets/audio/cancion_valentina.mp3
-      await fetch('/api/save-audio', {
-        method: 'POST',
-        body: file,
-      });
-    } catch (err) {}
-
-    // 2. Also create blob URL so it plays instantly right now
-    const localUrl = URL.createObjectURL(file);
-    setParty((prev) => ({ ...prev, audioUrl: localUrl }));
-
-    if (audioElementRef.current) {
-      audioElementRef.current.src = localUrl;
-      audioElementRef.current.load();
-      if (hasStarted) {
-        audioElementRef.current.play().catch(() => {});
-      }
-    }
-
-    setUploadSuccess(true);
-    triggerConfetti(50);
-    setTimeout(() => setUploadSuccess(false), 3500);
-  };
-
-  // WhatsApp confirmation: Direct link to 1164270908 (+5491164270908)
+  // WhatsApp confirmation: Direct link to WhatsApp
   const handleWhatsApp = () => {
-    const phone = '5491164270908';
+    const phone = party.whatsapp;
     const msg = encodeURIComponent(party.whatsappMessage);
     window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
   };
@@ -544,21 +449,12 @@ export default function App() {
 
   return (
     <div className="relative w-full h-screen bg-[#040508] flex items-center justify-center overflow-hidden select-none">
-      {/* Permanent Audio Element playing Valentina's Official Birthday Song */}
+      {/* Background Birthday Song */}
       <audio
         ref={audioElementRef}
-        src={party.audioUrl || '/assets/audio/cancion_valentina.mp3'}
+        src={party.audioUrl}
         loop
         preload="auto"
-      />
-
-      {/* Hidden file input for one-click admin audio persistence */}
-      <input
-        type="file"
-        ref={audioInputRef}
-        onChange={handleSaveAudioFile}
-        accept="audio/*"
-        className="hidden"
       />
 
       {/* Mobile-first Phone Container */}
@@ -618,7 +514,8 @@ export default function App() {
         )}
 
         {/* =========================================================
-            HEADER TOOLBAR (CLEAN & SLEEK FOR GUESTS)
+            HEADER TOOLBAR (100% CLEAN: SOUND, AUTO-PLAY, SHARE)
+            No configuration, settings, or upload buttons for guests.
             ========================================================= */}
         <div className="absolute top-6 left-3 right-3 z-40 flex items-center justify-between pointer-events-auto">
           {/* Sound Toggle + Animated Equalizer */}
@@ -662,24 +559,14 @@ export default function App() {
             </button>
           )}
 
-          {/* Right Action Icons (Share & Discrete Settings) */}
+          {/* Right Action: Share Link Only */}
           <div className="flex items-center gap-1.5">
-            {/* Share Link */}
             <button
               onClick={handleShare}
               title="Compartir por WhatsApp"
-              className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shadow-lg active:scale-95 transition-transform cursor-pointer"
+              className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shadow-lg active:scale-95 transition-transform cursor-pointer hover:bg-white/10"
             >
               <Share2 className="w-3.5 h-3.5 text-slate-200" />
-            </button>
-
-            {/* Discrete Settings for Admin */}
-            <button
-              onClick={() => setShowSettings(true)}
-              title="Ajustes"
-              className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shadow-lg active:scale-95 transition-transform cursor-pointer opacity-70 hover:opacity-100"
-            >
-              <Settings className="w-3.5 h-3.5 text-slate-200" />
             </button>
           </div>
         </div>
@@ -725,10 +612,11 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Valentina Real VIP Portrait */}
+              {/* Valentina Portrait */}
               <div className="absolute right-2 bottom-2 w-42 h-[310px] rounded-[26px] overflow-hidden border-3 border-pink-400 shadow-[0_20px_50px_rgba(244,114,182,0.5)] rotate-4 z-20 bg-black">
                 <img
-                  src={activePortrait}
+                  src={photoSrc}
+                  onError={() => setPhotoSrc(vipPortraitFallback)}
                   alt="Valentina"
                   className="w-full h-full object-cover object-top"
                 />
@@ -792,7 +680,12 @@ export default function App() {
               >
                 <div className="flex items-center justify-center gap-3 mb-4">
                   <div className="w-36 h-52 rounded-2xl overflow-hidden border-2 border-pink-400 shadow-[0_15px_40px_rgba(244,114,182,0.4)] relative bg-black">
-                    <img src={activePortrait} alt="Valentina" className="w-full h-full object-cover object-top" />
+                    <img
+                      src={photoSrc}
+                      onError={() => setPhotoSrc(vipPortraitFallback)}
+                      alt="Valentina"
+                      className="w-full h-full object-cover object-top"
+                    />
                     <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-full bg-black/70 text-[9px] font-bold text-pink-300">
                       👑 Valentina
                     </div>
@@ -910,7 +803,12 @@ export default function App() {
                       </div>
                     </div>
                     <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-pink-400 shadow-md">
-                      <img src={activePortrait} alt="Valentina" className="w-full h-full object-cover object-top" />
+                      <img
+                        src={photoSrc}
+                        onError={() => setPhotoSrc(vipPortraitFallback)}
+                        alt="Valentina"
+                        className="w-full h-full object-cover object-top"
+                      />
                     </div>
                   </div>
 
@@ -963,7 +861,12 @@ export default function App() {
               >
                 <div className="w-24 h-24 rounded-full p-1 bg-gradient-to-tr from-pink-500 to-purple-500 shadow-[0_0_30px_rgba(244,114,182,0.6)] mb-4">
                   <div className="w-full h-full rounded-full overflow-hidden border-2 border-white">
-                    <img src={activePortrait} alt="Valentina" className="w-full h-full object-cover object-top" />
+                    <img
+                      src={photoSrc}
+                      onError={() => setPhotoSrc(vipPortraitFallback)}
+                      alt="Valentina"
+                      className="w-full h-full object-cover object-top"
+                    />
                   </div>
                 </div>
 
@@ -1035,11 +938,16 @@ export default function App() {
                     <img src={yoyaEarmuffsImg} alt="YoYa Earmuffs" className="w-full h-full object-cover object-top" />
                   </div>
                   <div className="absolute bottom-0 w-36 h-42 rounded-2xl overflow-hidden border-3 border-pink-400 shadow-[0_10px_35px_rgba(244,114,182,0.8)] z-30 bg-black">
-                    <img src={activePortrait} alt="Valentina" className="w-full h-full object-cover object-top" />
+                    <img
+                      src={photoSrc}
+                      onError={() => setPhotoSrc(vipPortraitFallback)}
+                      alt="Valentina"
+                      className="w-full h-full object-cover object-top"
+                    />
                   </div>
                 </div>
 
-                {/* Final WhatsApp Action Button (11 6427-0908) */}
+                {/* Final WhatsApp Action Button */}
                 <div className="w-full max-w-[330px] flex flex-col gap-2">
                   <button
                     onClick={handleWhatsApp}
@@ -1049,7 +957,7 @@ export default function App() {
                     <span>CONFIRMAR ASISTENCIA AL WHATSAPP</span>
                   </button>
                   <div className="text-[10px] text-emerald-300 font-semibold tracking-wide">
-                    WhatsApp: 11 6427-0908
+                    WhatsApp: {party.whatsappDisplay}
                   </div>
 
                   <div className="flex gap-2 mt-0.5">
@@ -1119,156 +1027,6 @@ export default function App() {
           <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 py-2 px-4 rounded-full bg-emerald-600 text-white text-xs font-bold shadow-2xl flex items-center gap-2 animate-bounce">
             <CheckCircle2 className="w-4 h-4" />
             <span>¡Enlace copiado para enviar por WhatsApp!</span>
-          </div>
-        )}
-
-        {/* Audio Saved Notification */}
-        {uploadSuccess && (
-          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 py-2.5 px-4 rounded-full bg-pink-600 text-white text-xs font-bold shadow-2xl flex items-center gap-2 animate-bounce">
-            <Sparkles className="w-4 h-4" />
-            <span>¡Canción de Valentina guardada con éxito!</span>
-          </div>
-        )}
-
-        {/* Settings Drawer (Cleaned: Organizer can set the song permanently) */}
-        {showSettings && (
-          <div className="absolute inset-0 bg-black/85 backdrop-blur-md z-50 flex flex-col justify-end">
-            <div className="bg-[#121520] border-t border-white/20 rounded-t-[32px] p-6 max-h-[85vh] overflow-y-auto">
-              <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-4">
-                <div className="text-sm font-bold tracking-wider text-white flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-pink-400" />
-                  <span>Configuración de la Invitación</span>
-                </div>
-                <button
-                  onClick={() => setShowSettings(false)}
-                  className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* One-click Audio Saver for Valentina's song */}
-              <div className="mb-4 p-3.5 rounded-2xl bg-gradient-to-r from-pink-500/20 to-purple-500/20 border border-pink-400/40 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-pink-500/30 border border-pink-400/50 flex items-center justify-center text-pink-300">
-                    <Music className="w-5 h-5 animate-pulse" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-white">Canción de Valentina</div>
-                    <div className="text-[10px] text-pink-200">
-                      Guardar el archivo de música que tienes
-                    </div>
-                  </div>
-                </div>
-                <button
-                  onClick={() => audioInputRef.current?.click()}
-                  className="px-3 py-1.5 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white text-xs font-bold flex items-center gap-1 cursor-pointer shadow-lg active:scale-95 transition-transform"
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                  <span>Guardar</span>
-                </button>
-              </div>
-
-              <div className="space-y-3 text-left">
-                <div>
-                  <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-1">
-                    WhatsApp para Confirmaciones
-                  </label>
-                  <input
-                    type="text"
-                    value={party.whatsappDisplay}
-                    onChange={(e) =>
-                      setParty({
-                        ...party,
-                        whatsappDisplay: e.target.value,
-                        whatsapp: '549' + e.target.value.replace(/[^0-9]/g, ''),
-                      })
-                    }
-                    className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-pink-400"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-1">
-                    Enlace de Audio Directo (Opcional)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="https://.../cancion.mp3"
-                    value={party.audioUrl}
-                    onChange={(e) => setParty({ ...party, audioUrl: e.target.value })}
-                    className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-pink-400 font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-1">
-                    Nombre
-                  </label>
-                  <input
-                    type="text"
-                    value={party.nombre}
-                    onChange={(e) => setParty({ ...party, nombre: e.target.value })}
-                    className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-pink-400"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-1">
-                    Fecha
-                  </label>
-                  <input
-                    type="text"
-                    value={party.fecha}
-                    onChange={(e) => setParty({ ...party, fecha: e.target.value })}
-                    className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-pink-400"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-1">
-                    Horario
-                  </label>
-                  <input
-                    type="text"
-                    value={party.hora}
-                    onChange={(e) => setParty({ ...party, hora: e.target.value })}
-                    className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-pink-400"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-1">
-                    Lugar
-                  </label>
-                  <input
-                    type="text"
-                    value={party.lugar}
-                    onChange={(e) => setParty({ ...party, lugar: e.target.value })}
-                    className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-pink-400"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-1">
-                    Dirección
-                  </label>
-                  <input
-                    type="text"
-                    value={party.direccion}
-                    onChange={(e) => setParty({ ...party, direccion: e.target.value })}
-                    className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-pink-400"
-                  />
-                </div>
-
-                <button
-                  onClick={() => setShowSettings(false)}
-                  className="w-full py-3 rounded-full bg-pink-500 hover:bg-pink-600 text-white font-bold text-xs uppercase tracking-wider mt-4 cursor-pointer"
-                >
-                  Guardar y Cerrar
-                </button>
-              </div>
-            </div>
           </div>
         )}
       </div>
