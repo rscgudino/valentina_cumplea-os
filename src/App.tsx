@@ -23,11 +23,23 @@ import {
   Copy,
   ExternalLink,
   Navigation,
-  Heart
+  Heart,
+  Gift,
+  Camera,
+  Shirt,
+  Disc,
+  BookOpen
 } from 'lucide-react';
 
 // Party Configuration
 import { PARTY_CONFIG } from './config/partyConfig';
+
+// Feature Modals
+import { RsvpModal } from './components/RsvpModal';
+import { GiftsModal } from './components/GiftsModal';
+import { DressCodeModal } from './components/DressCodeModal';
+import { LookbookModal } from './components/LookbookModal';
+import { PhotoboothModal } from './components/PhotoboothModal';
 
 // Visual assets: Valentina and her favorite doll YoYa: Sparkle
 import yoyaFrontImg from './assets/images/yoya_sparkle_front_1790183065047.jpg';
@@ -71,6 +83,22 @@ export default function App() {
   const [isFlashing, setIsFlashing] = useState<boolean>(false);
   const [flashKey, setFlashKey] = useState<number>(0);
   const flashTimeoutRef = useRef<number | null>(null);
+
+  // Party Disco Mode & Feature Modals States
+  const [isPartyMode, setIsPartyMode] = useState<boolean>(false);
+  const isPartyModeRef = useRef<boolean>(false);
+  const partyBeamAngleRef = useRef<number>(0);
+
+  const [showRsvpModal, setShowRsvpModal] = useState<boolean>(false);
+  const [showGiftsModal, setShowGiftsModal] = useState<boolean>(false);
+  const [showDressCodeModal, setShowDressCodeModal] = useState<boolean>(false);
+  const [showLookbookModal, setShowLookbookModal] = useState<boolean>(false);
+  const [showPhotoboothModal, setShowPhotoboothModal] = useState<boolean>(false);
+
+  // Sync ref for animation loop
+  useEffect(() => {
+    isPartyModeRef.current = isPartyMode;
+  }, [isPartyMode]);
 
   // Interactive Feedback States
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
@@ -329,6 +357,44 @@ export default function App() {
       });
       ctx.restore();
 
+      // 0.5. Dynamic Party Disco Beams (Modo Fiesta 🪩)
+      if (isPartyModeRef.current) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        partyBeamAngleRef.current += 0.02;
+        const t = partyBeamAngleRef.current;
+        const discoColors = [
+          { r: 244, g: 114, b: 182 }, // Neon Pink
+          { r: 56, g: 189, b: 248 },  // Neon Cyan
+          { r: 250, g: 204, b: 21 },  // Neon Gold
+          { r: 192, g: 132, b: 252 }, // Neon Violet
+        ];
+
+        for (let i = 0; i < 4; i++) {
+          const angle = t + (i * Math.PI) / 2;
+          const originX = canvas.width / 2 + Math.cos(angle) * (canvas.width * 0.35);
+          const originY = -30;
+          const targetX = canvas.width / 2 + Math.sin(angle * 1.3) * (canvas.width * 0.6);
+          const targetY = canvas.height + 30;
+
+          const col = discoColors[i % discoColors.length];
+          const grad = ctx.createLinearGradient(originX, originY, targetX, targetY);
+          grad.addColorStop(0, `rgba(${col.r}, ${col.g}, ${col.b}, 0.25)`);
+          grad.addColorStop(0.5, `rgba(${col.r}, ${col.g}, ${col.b}, 0.12)`);
+          grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+          ctx.beginPath();
+          ctx.moveTo(originX - 15, originY);
+          ctx.lineTo(originX + 15, originY);
+          ctx.lineTo(targetX + 60, targetY);
+          ctx.lineTo(targetX - 60, targetY);
+          ctx.closePath();
+          ctx.fillStyle = grad;
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
       // 1. Ambient Sparkle Dust
       particlesListRef.current.forEach((p) => {
         p.x += p.speedX;
@@ -574,17 +640,29 @@ export default function App() {
     return () => clearInterval(timer);
   }, [hasStarted, isPaused, currentSlide, triggerSoftTransition, triggerConfetti]);
 
+  // Safe Navigator Vibration API Haptic Feedback Helper
+  const triggerHaptic = useCallback((pattern: number | number[]) => {
+    if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(pattern);
+      } catch (e) {}
+    }
+  }, []);
+
   // Jump to specific slide with crossfade
   const goToSlide = (index: number) => {
+    triggerHaptic(20);
     triggerSoftTransition();
     triggerConfetti(35);
     setCurrentSlide(index);
     setSlideProgress(0);
   };
 
-  // Start presentation with Luxury Envelope Opening Animation
+  // Start presentation with Luxury Envelope Opening Animation (Tactile Haptic Feedback)
   const handleOpenEnvelope = () => {
     if (isOpeningEnvelope) return;
+    // Haptic feedback pattern: initial wax snap (45ms), pause (60ms), celebration burst (80ms)
+    triggerHaptic([45, 60, 80]);
     setIsOpeningEnvelope(true);
     triggerConfetti(85);
 
@@ -602,12 +680,14 @@ export default function App() {
 
   // Replay presentation from slide 0
   const handleReplay = () => {
+    triggerHaptic([30, 40, 30]);
     goToSlide(0);
     playPartyMusic();
   };
 
   // Send an interactive wish / reaction to Valentina
   const handleSendReaction = (r: typeof REACTIONS[0], e: React.MouseEvent) => {
+    triggerHaptic(35);
     const rect = e.currentTarget.getBoundingClientRect();
     const x = rect.left + rect.width / 2;
     const y = rect.top;
@@ -625,8 +705,10 @@ export default function App() {
     setTimeout(() => setReactionToast(null), 2500);
   };
 
-  // WhatsApp confirmation: Direct link to WhatsApp
+  // WhatsApp confirmation: Direct link to WhatsApp (Tactile Haptic Confirmation)
   const handleWhatsApp = () => {
+    // Distinct double pulse confirmation: [60ms, 50ms pause, 70ms]
+    triggerHaptic([60, 50, 70]);
     const phone = party.whatsapp;
     const msg = encodeURIComponent(party.whatsappMessage);
     window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
@@ -634,16 +716,19 @@ export default function App() {
 
   // Google Maps
   const handleMaps = () => {
+    triggerHaptic(25);
     window.open(party.mapsUrl, '_blank');
   };
 
   // Waze Navigation
   const handleWaze = () => {
+    triggerHaptic(25);
     window.open(party.wazeUrl, '_blank');
   };
 
   // Copy Address
   const handleCopyAddress = () => {
+    triggerHaptic([30, 40, 30]);
     navigator.clipboard?.writeText(party.direccion);
     setCopiedAddress(true);
     setTimeout(() => setCopiedAddress(false), 2500);
@@ -651,6 +736,7 @@ export default function App() {
 
   // Google Calendar
   const handleCalendar = () => {
+    triggerHaptic(25);
     const title = encodeURIComponent(`Cumpleaños de ${party.nombre} (9 Años) 🎀`);
     const details = encodeURIComponent(
       `¡Celebración de los 9 años de ${party.nombre}! ${party.detalles}. ${party.mensajeEspecial}`
@@ -663,6 +749,7 @@ export default function App() {
 
   // Share invitation
   const handleShare = async () => {
+    triggerHaptic([30, 40, 30]);
     const shareText = `🎉✨ ¡ESTÁS INVITADO/A! ✨🎉\n💖 VALENTINA CUMPLE 9 AÑOS 💖\n📅 ${party.fecha}\n⏰ ${party.hora}\n🏠 ${party.lugar} - ${party.direccion}\n📱 Confirmar al: ${party.whatsappDisplay}\n🎈 ¡No faltes!`;
     if (navigator.share) {
       try {
@@ -681,11 +768,13 @@ export default function App() {
 
   // Open Ondigu Designer Website
   const handleOpenOndigu = () => {
+    triggerHaptic(25);
     window.open(party.designerUrl, '_blank');
   };
 
   // Contact Ondigu for Custom Invitation
   const handleContactOndigu = () => {
+    triggerHaptic([40, 50, 60]);
     const msg = encodeURIComponent(
       '¡Hola Ondigu! Vi la invitación digital de Valentina y me encantó. Quisiera consultar para hacer una invitación personalizada para mi evento.'
     );
@@ -836,8 +925,25 @@ export default function App() {
             </button>
           )}
 
-          {/* Right Action: Share Link */}
+          {/* Right Action: Party Disco Mode & Share Link */}
           <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => {
+                triggerHaptic(30);
+                setIsPartyMode(!isPartyMode);
+                triggerConfetti(30);
+              }}
+              title="Activar / Desactivar Modo Fiesta con Luces"
+              className={`px-2.5 py-1.5 rounded-full backdrop-blur-md border flex items-center gap-1.5 text-xs shadow-lg active:scale-95 transition-all cursor-pointer ${
+                isPartyMode
+                  ? 'bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 border-pink-300 text-white shadow-[0_0_15px_rgba(244,114,182,0.6)] animate-pulse'
+                  : 'bg-black/60 border-white/20 text-slate-300 hover:text-white'
+              }`}
+            >
+              <span className="text-xs">🪩</span>
+              <span className="text-[9px] font-black uppercase tracking-wider">{isPartyMode ? 'Disco ON' : 'Fiesta'}</span>
+            </button>
+
             <button
               onClick={handleShare}
               title="Compartir por WhatsApp"
@@ -1078,6 +1184,30 @@ export default function App() {
                 <div className="p-2.5 rounded-xl bg-white/5 border border-white/15 text-xs text-slate-200 mt-2 max-w-[300px]">
                   <span className="text-pink-400 font-bold">Dress Code:</span> {party.dressCode}
                 </div>
+
+                {/* Interactive Modals: Dress Code Guide & Lookbook */}
+                <div className="flex items-center gap-2 mt-2.5 w-full max-w-[300px]">
+                  <button
+                    onClick={() => {
+                      triggerHaptic(25);
+                      setShowDressCodeModal(true);
+                    }}
+                    className="flex-1 py-2 px-2.5 rounded-xl bg-pink-500/20 hover:bg-pink-500/30 border border-pink-400/40 text-pink-300 text-[10px] font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer shadow-sm"
+                  >
+                    <Shirt className="w-3.5 h-3.5" />
+                    <span>Guía Dress Code</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      triggerHaptic(25);
+                      setShowLookbookModal(true);
+                    }}
+                    className="flex-1 py-2 px-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-[10px] font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer shadow-sm"
+                  >
+                    <Camera className="w-3.5 h-3.5 text-amber-300" />
+                    <span>Ver Lookbook</span>
+                  </button>
+                </div>
               </div>
 
               {/* SLIDE 4: COORDENADAS DE LA FIESTA & NAVEGACIÓN */}
@@ -1172,6 +1302,18 @@ export default function App() {
                         <span>{copiedAddress ? '¡Copiado!' : 'Copiar'}</span>
                       </button>
                     </div>
+
+                    {/* Gifts Mailbox Direct Access */}
+                    <button
+                      onClick={() => {
+                        triggerHaptic(25);
+                        setShowGiftsModal(true);
+                      }}
+                      className="w-full mt-2 py-2 px-3 rounded-xl bg-gradient-to-r from-pink-500/20 via-purple-500/20 to-amber-500/20 hover:from-pink-500/30 hover:to-amber-500/30 border border-pink-400/30 text-pink-200 text-[10px] font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer shadow-sm"
+                    >
+                      <Gift className="w-3.5 h-3.5 text-pink-400" />
+                      <span>Buzón de Regalos & Cariño 🎁</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1280,27 +1422,53 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Final WhatsApp Action Button */}
+                {/* Final WhatsApp Action Button & Interactive Features */}
                 <div className="w-full max-w-[320px] flex flex-col gap-1.5">
                   <button
-                    onClick={handleWhatsApp}
-                    className="w-full py-3 px-4 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs tracking-wider uppercase flex items-center justify-center gap-2 shadow-[0_8px_30px_rgba(16,185,129,0.55)] active:scale-95 transition-all cursor-pointer border border-emerald-400/40 animate-pulse"
+                    onClick={() => {
+                      triggerHaptic([60, 50, 70]);
+                      setShowRsvpModal(true);
+                    }}
+                    className="w-full py-2.5 px-4 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs tracking-wider uppercase flex items-center justify-center gap-2 shadow-[0_8px_30px_rgba(16,185,129,0.55)] active:scale-95 transition-all cursor-pointer border border-emerald-400/40 animate-pulse"
                   >
                     <MessageCircle className="w-4 h-4 fill-white" />
-                    <span>CONFIRMAR ASISTENCIA AL WHATSAPP</span>
+                    <span>CONFIRMAR ASISTENCIA (RSVP)</span>
                   </button>
+
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      onClick={() => {
+                        triggerHaptic(25);
+                        setShowPhotoboothModal(true);
+                      }}
+                      className="py-2 px-2.5 rounded-full bg-gradient-to-r from-pink-600/40 to-purple-600/40 hover:from-pink-600/60 hover:to-purple-600/60 border border-pink-400/40 text-pink-200 font-bold text-[10px] tracking-wider uppercase flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer shadow-sm"
+                    >
+                      <Camera className="w-3.5 h-3.5 text-pink-300" />
+                      <span>📸 PHOTOBOOTH</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        triggerHaptic(25);
+                        setShowGiftsModal(true);
+                      }}
+                      className="py-2 px-2.5 rounded-full bg-gradient-to-r from-amber-600/30 to-pink-600/30 hover:from-amber-600/50 hover:to-pink-600/50 border border-amber-400/40 text-amber-200 font-bold text-[10px] tracking-wider uppercase flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer shadow-sm"
+                    >
+                      <Gift className="w-3.5 h-3.5 text-amber-300" />
+                      <span>🎁 REGALOS</span>
+                    </button>
+                  </div>
 
                   <div className="flex gap-1.5">
                     <button
                       onClick={handleMaps}
-                      className="flex-1 py-2 px-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-[10px] tracking-wider uppercase flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
+                      className="flex-1 py-1.5 px-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-[10px] tracking-wider uppercase flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
                     >
                       <MapPin className="w-3 h-3 text-blue-400" />
                       <span>MAPS</span>
                     </button>
                     <button
                       onClick={handleCalendar}
-                      className="flex-1 py-2 px-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-[10px] tracking-wider uppercase flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
+                      className="flex-1 py-1.5 px-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-[10px] tracking-wider uppercase flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
                     >
                       <Calendar className="w-3 h-3 text-pink-400" />
                       <span>AGENDAR</span>
@@ -1308,7 +1476,7 @@ export default function App() {
                     <button
                       onClick={handleReplay}
                       title="Repetir presentación"
-                      className="py-2 px-3 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-[10px] flex items-center justify-center active:scale-95 transition-all cursor-pointer"
+                      className="py-1.5 px-3 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-[10px] flex items-center justify-center active:scale-95 transition-all cursor-pointer"
                     >
                       <RotateCcw className="w-3 h-3 text-slate-200" />
                     </button>
@@ -1418,6 +1586,44 @@ export default function App() {
             <span>¡Dirección copiada al portapapeles!</span>
           </div>
         )}
+
+        {/* =========================================================
+            FEATURE MODALS (RSVP, GIFTS, DRESS CODE, LOOKBOOK, PHOTOBOOTH)
+            ========================================================= */}
+        <RsvpModal
+          isOpen={showRsvpModal}
+          onClose={() => setShowRsvpModal(false)}
+          party={party}
+          triggerHaptic={triggerHaptic}
+        />
+
+        <GiftsModal
+          isOpen={showGiftsModal}
+          onClose={() => setShowGiftsModal(false)}
+          party={party}
+          triggerHaptic={triggerHaptic}
+        />
+
+        <DressCodeModal
+          isOpen={showDressCodeModal}
+          onClose={() => setShowDressCodeModal(false)}
+          party={party}
+          triggerHaptic={triggerHaptic}
+        />
+
+        <LookbookModal
+          isOpen={showLookbookModal}
+          onClose={() => setShowLookbookModal(false)}
+          party={party}
+          triggerHaptic={triggerHaptic}
+        />
+
+        <PhotoboothModal
+          isOpen={showPhotoboothModal}
+          onClose={() => setShowPhotoboothModal(false)}
+          party={party}
+          triggerHaptic={triggerHaptic}
+        />
       </div>
     </div>
   );

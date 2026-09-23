@@ -29,6 +29,19 @@ export const PARTY_CONFIG = {
   wazeUrl: 'https://waze.com/ul?q=Calle+Manuel+Ocampo+2443',
   countdownDate: '2026-10-03T17:00:00',
 
+  // Buzón de Regalos & Datos Bancarios
+  regalosTitulo: 'Buzón de Regalos & Cariño',
+  regalosSubtitulo: 'Lo más importante es tu presencia, pero si deseas hacerme un presente...',
+  aliasCBU: 'cable.napa.yuyo.mp',
+  bancoNombre: 'Mercado Pago',
+  titularCuenta: 'Mamá de Valentina',
+  gustosFavoritos: [
+    'Ropa & Accesorios Glam (Talle 10-12)',
+    'Calzado Fashion (Talle 34)',
+    'Muñecas YoYa / Glitter / Accesorios de moda',
+    'Lluvia de sobres o transferencia para su alcancía'
+  ],
+
   // Diseñador & Branding Ondigu
   designerName: 'Ondigu',
   designerUrl: 'https://ondigu.vercel.app/',
