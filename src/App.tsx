@@ -195,28 +195,30 @@ export default function App() {
     setTimeout(() => setAmbientGlow(false), 350);
   }, [triggerPhotoFlash]);
 
-  // Confetti Particle Burst
-  const triggerConfetti = useCallback((amount = 60, customX?: number, customY?: number) => {
+  // Confetti Particle Burst (Papelillos suaves y elegantes)
+  const triggerConfetti = useCallback((amount = 45, customX?: number, customY?: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const colors = ['#ffffff', '#f472b6', '#c084fc', '#fcd34d', '#93c5fd', '#fbcfe8', '#ffd700'];
     const centerX = customX !== undefined ? customX : canvas.width / 2;
-    const centerY = customY !== undefined ? customY : canvas.height * 0.42;
+    const centerY = customY !== undefined ? customY : canvas.height * 0.35;
 
     const pieces = Array.from({ length: amount }, () => {
       const angle = Math.random() * Math.PI * 2;
-      const speed = Math.random() * 7 + 2.5;
+      const speed = Math.random() * 2.8 + 1.2;
       return {
-        x: centerX,
-        y: centerY,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 3.5,
-        gravity: 0.14,
-        size: Math.random() * 6.5 + 3.5,
+        x: centerX + (Math.random() - 0.5) * 80,
+        y: centerY + (Math.random() - 0.5) * 40,
+        vx: Math.cos(angle) * speed * 0.9,
+        vy: Math.sin(angle) * speed * 0.7 - 1.8,
+        gravity: 0.042,
+        size: Math.random() * 6 + 3.5,
         color: colors[Math.floor(Math.random() * colors.length)],
         rotation: Math.random() * Math.PI,
-        rotSpeed: (Math.random() - 0.5) * 0.22,
-        life: 1.3,
+        rotSpeed: (Math.random() - 0.5) * 0.08,
+        wobble: Math.random() * Math.PI * 2,
+        wobbleSpeed: Math.random() * 0.05 + 0.02,
+        life: 1.5,
       };
     });
     confettiListRef.current.push(...pieces);
@@ -443,17 +445,19 @@ export default function App() {
         ctx.restore();
       }
 
-      // 3. Confetti physics
+      // 3. Confetti physics (Papelillos suaves con resistencia al aire y oscilación elegante)
       const conf = confettiListRef.current;
       for (let i = conf.length - 1; i >= 0; i--) {
         const c = conf[i];
-        c.x += c.vx;
+        c.vx *= 0.96; // Suave fricción del aire
+        c.vy = Math.min(c.vy + c.gravity, 1.35); // Velocidad terminal suave (cae pausadamente)
+        c.wobble = (c.wobble || 0) + (c.wobbleSpeed || 0.03);
+        c.x += c.vx + Math.sin(c.wobble) * 0.55; // Ondulación suave lateral
         c.y += c.vy;
-        c.vy += c.gravity;
         c.rotation += c.rotSpeed;
-        c.life -= 0.014;
+        c.life -= 0.0065; // Desvanecimiento gradual
 
-        if (c.life <= 0 || c.y > canvas.height + 20) {
+        if (c.life <= 0 || c.y > canvas.height + 25) {
           conf.splice(i, 1);
           continue;
         }
@@ -462,7 +466,7 @@ export default function App() {
         ctx.translate(c.x, c.y);
         ctx.rotate(c.rotation);
         ctx.fillStyle = c.color;
-        ctx.globalAlpha = Math.max(0, c.life);
+        ctx.globalAlpha = Math.max(0, Math.min(1, c.life));
         ctx.fillRect(-c.size / 2, -c.size / 2, c.size, c.size * 0.6);
         ctx.restore();
       }
@@ -1309,9 +1313,9 @@ export default function App() {
                         triggerHaptic(25);
                         setShowGiftsModal(true);
                       }}
-                      className="w-full mt-2 py-2 px-3 rounded-xl bg-gradient-to-r from-pink-500/20 via-purple-500/20 to-amber-500/20 hover:from-pink-500/30 hover:to-amber-500/30 border border-pink-400/30 text-pink-200 text-[10px] font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer shadow-sm"
+                      className="w-full mt-2 py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 via-pink-500 to-purple-600 hover:from-amber-400 hover:to-purple-500 border-2 border-amber-300 text-white text-[11px] font-black tracking-wider uppercase flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer shadow-[0_0_20px_rgba(251,191,36,0.65)]"
                     >
-                      <Gift className="w-3.5 h-3.5 text-pink-400" />
+                      <Gift className="w-4 h-4 text-white fill-white" />
                       <span>Buzón de Regalos & Cariño 🎁</span>
                     </button>
                   </div>
@@ -1429,21 +1433,21 @@ export default function App() {
                       triggerHaptic([60, 50, 70]);
                       setShowRsvpModal(true);
                     }}
-                    className="w-full py-2.5 px-4 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs tracking-wider uppercase flex items-center justify-center gap-2 shadow-[0_8px_30px_rgba(16,185,129,0.55)] active:scale-95 transition-all cursor-pointer border border-emerald-400/40 animate-pulse"
+                    className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 via-green-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-xs sm:text-sm tracking-wider uppercase flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(16,185,129,0.7),0_6px_20px_rgba(0,0,0,0.6)] active:scale-95 transition-all cursor-pointer border-2 border-emerald-300 animate-pulse"
                   >
-                    <MessageCircle className="w-4 h-4 fill-white" />
+                    <MessageCircle className="w-5 h-5 fill-white" />
                     <span>CONFIRMAR ASISTENCIA (RSVP)</span>
                   </button>
 
-                  <div className="grid grid-cols-2 gap-1.5">
+                  <div className="grid grid-cols-2 gap-2 my-0.5">
                     <button
                       onClick={() => {
                         triggerHaptic(25);
                         setShowPhotoboothModal(true);
                       }}
-                      className="py-2 px-2.5 rounded-full bg-gradient-to-r from-pink-600/40 to-purple-600/40 hover:from-pink-600/60 hover:to-purple-600/60 border border-pink-400/40 text-pink-200 font-bold text-[10px] tracking-wider uppercase flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer shadow-sm"
+                      className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-pink-500 via-fuchsia-600 to-purple-600 hover:from-pink-400 hover:to-purple-500 border-2 border-pink-300 text-white font-black text-[11px] tracking-wider uppercase flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer shadow-[0_0_20px_rgba(236,72,153,0.65)]"
                     >
-                      <Camera className="w-3.5 h-3.5 text-pink-300" />
+                      <Camera className="w-4 h-4 text-white" />
                       <span>📸 PHOTOBOOTH</span>
                     </button>
                     <button
@@ -1451,9 +1455,9 @@ export default function App() {
                         triggerHaptic(25);
                         setShowGiftsModal(true);
                       }}
-                      className="py-2 px-2.5 rounded-full bg-gradient-to-r from-amber-600/30 to-pink-600/30 hover:from-amber-600/50 hover:to-pink-600/50 border border-amber-400/40 text-amber-200 font-bold text-[10px] tracking-wider uppercase flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer shadow-sm"
+                      className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-pink-500 hover:from-amber-400 hover:to-pink-400 border-2 border-amber-300 text-white font-black text-[11px] tracking-wider uppercase flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer shadow-[0_0_20px_rgba(245,158,11,0.65)]"
                     >
-                      <Gift className="w-3.5 h-3.5 text-amber-300" />
+                      <Gift className="w-4 h-4 text-white" />
                       <span>🎁 REGALOS</span>
                     </button>
                   </div>
