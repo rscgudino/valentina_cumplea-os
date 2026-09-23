@@ -1,0 +1,8 @@
+INSTRUCCIONES PARA AGREGAR LA FOTO DE VALENTINA:
+=================================================
+1. Pega tu foto en esta misma carpeta (public/images/).
+2. Nómbrala: valentina.jpg
+   (Ruta completa: public/images/valentina.jpg)
+
+Si tu imagen tiene otro formato (por ejemplo .png), puedes cambiar la extensión o actualizar la ruta en src/config/partyConfig.ts.
+Actualmente ya tiene una foto lista de muestra por defecto.
