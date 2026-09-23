@@ -195,34 +195,69 @@ export default function App() {
     setTimeout(() => setAmbientGlow(false), 350);
   }, [triggerPhotoFlash]);
 
-  // Confetti Particle Burst (Papelillos suaves y elegantes)
-  const triggerConfetti = useCallback((amount = 45, customX?: number, customY?: number) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const colors = ['#ffffff', '#f472b6', '#c084fc', '#fcd34d', '#93c5fd', '#fbcfe8', '#ffd700'];
-    const centerX = customX !== undefined ? customX : canvas.width / 2;
-    const centerY = customY !== undefined ? customY : canvas.height * 0.35;
+  // Helper to detect low-end or budget mobile hardware to optimize performance
+  const isLowEndDevice = useCallback((): boolean => {
+    if (typeof window === 'undefined') return false;
+    // 1. Hardware Concurrency: 4 or fewer CPU cores is common on entry-level smartphones
+    const cores = typeof navigator !== 'undefined' ? (navigator.hardwareConcurrency || 4) : 4;
+    // 2. Device RAM Memory (GB) available in modern mobile Chromium/Android
+    const memory = typeof navigator !== 'undefined' ? ((navigator as any).deviceMemory || 4) : 4;
+    // 3. Mobile screen footprint check
+    const isMobile =
+      window.innerWidth <= 768 ||
+      (typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent));
 
-    const pieces = Array.from({ length: amount }, () => {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = Math.random() * 2.8 + 1.2;
-      return {
-        x: centerX + (Math.random() - 0.5) * 80,
-        y: centerY + (Math.random() - 0.5) * 40,
-        vx: Math.cos(angle) * speed * 0.9,
-        vy: Math.sin(angle) * speed * 0.7 - 1.8,
-        gravity: 0.042,
-        size: Math.random() * 6 + 3.5,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        rotation: Math.random() * Math.PI,
-        rotSpeed: (Math.random() - 0.5) * 0.08,
-        wobble: Math.random() * Math.PI * 2,
-        wobbleSpeed: Math.random() * 0.05 + 0.02,
-        life: 1.5,
-      };
-    });
-    confettiListRef.current.push(...pieces);
+    return cores <= 4 || memory < 4 || (isMobile && window.devicePixelRatio < 2.5);
   }, []);
+
+  // Confetti Particle Burst with Adaptive Mobile Performance Limiter
+  const triggerConfetti = useCallback(
+    (amount = 45, customX?: number, customY?: number, isGranFinal = false) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const lowEnd = isLowEndDevice();
+      // Dynamic particle ceilings:
+      // On low-end mobile devices, reduce particle count and enforce strict active pool capacity
+      const maxGlobalCapacity = lowEnd ? 26 : 70;
+      const burstLimit = isGranFinal
+        ? (lowEnd ? 20 : 48) // Gran Final: optimized for budget devices
+        : (lowEnd ? 12 : Math.min(amount, 36));
+
+      const finalAmount = Math.min(amount, burstLimit);
+
+      // Prune oldest particles if the active pool exceeds device capacity to prevent mobile lag
+      if (confettiListRef.current.length + finalAmount > maxGlobalCapacity) {
+        const overflow = confettiListRef.current.length + finalAmount - maxGlobalCapacity;
+        confettiListRef.current.splice(0, overflow);
+      }
+
+      const colors = ['#ffffff', '#f472b6', '#c084fc', '#fcd34d', '#93c5fd', '#fbcfe8', '#ffd700'];
+      const centerX = customX !== undefined ? customX : canvas.width / 2;
+      const centerY = customY !== undefined ? customY : canvas.height * 0.35;
+
+      const pieces = Array.from({ length: finalAmount }, () => {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 2.8 + 1.2;
+        return {
+          x: centerX + (Math.random() - 0.5) * 80,
+          y: centerY + (Math.random() - 0.5) * 40,
+          vx: Math.cos(angle) * speed * 0.9,
+          vy: Math.sin(angle) * speed * 0.7 - 1.8,
+          gravity: 0.042,
+          size: Math.random() * 6 + 3.5,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          rotation: Math.random() * Math.PI,
+          rotSpeed: (Math.random() - 0.5) * 0.08,
+          wobble: Math.random() * Math.PI * 2,
+          wobbleSpeed: Math.random() * 0.05 + 0.02,
+          life: 1.5,
+        };
+      });
+      confettiListRef.current.push(...pieces);
+    },
+    [isLowEndDevice]
+  );
 
   // Interactive Touch / Pointer Sparkles (Efecto Mágico al tocar la pantalla)
   const spawnTouchSparkle = useCallback((clientX: number, clientY: number) => {
@@ -629,11 +664,12 @@ export default function App() {
         if (next >= 100) {
           if (currentSlide < SLIDE_DURATIONS.length - 1) {
             triggerSoftTransition();
-            triggerConfetti(30);
+            triggerConfetti(25, undefined, undefined, false);
             setCurrentSlide((s) => s + 1);
             return 0;
           } else {
-            triggerConfetti(50);
+            // Gran Final confetti burst with mobile low-end limiter
+            triggerConfetti(45, undefined, undefined, true);
             return 100;
           }
         }
@@ -657,7 +693,7 @@ export default function App() {
   const goToSlide = (index: number) => {
     triggerHaptic(20);
     triggerSoftTransition();
-    triggerConfetti(35);
+    triggerConfetti(25, undefined, undefined, index === SLIDE_DURATIONS.length - 1);
     setCurrentSlide(index);
     setSlideProgress(0);
   };
