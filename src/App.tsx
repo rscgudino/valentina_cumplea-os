@@ -68,6 +68,9 @@ export default function App() {
   const [slideProgress, setSlideProgress] = useState<number>(0); // 0 to 100%
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [ambientGlow, setAmbientGlow] = useState<boolean>(false);
+  const [isFlashing, setIsFlashing] = useState<boolean>(false);
+  const [flashKey, setFlashKey] = useState<number>(0);
+  const flashTimeoutRef = useRef<number | null>(null);
 
   // Interactive Feedback States
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
@@ -82,6 +85,7 @@ export default function App() {
   const confettiListRef = useRef<any[]>([]);
   const particlesListRef = useRef<any[]>([]);
   const touchSparklesRef = useRef<any[]>([]);
+  const bokehListRef = useRef<any[]>([]);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
 
   // Web Audio Synthesizer (Fallback in case user audio is muted/pending)
@@ -118,11 +122,50 @@ export default function App() {
     return () => clearInterval(interval);
   }, [party.countdownDate]);
 
-  // Soft cinematic ambient flare on slide transition
+  // Subtle runway camera shutter click (Web Audio API)
+  const playShutterClick = useCallback(() => {
+    if (isMuted || !audioCtxRef.current || !synthGainRef.current) return;
+    try {
+      const ctx = audioCtxRef.current;
+      if (ctx.state === 'suspended') return;
+      const t = ctx.currentTime;
+
+      // Quick dual camera shutter impulse
+      const osc = ctx.createOscillator();
+      const clickGain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(950, t);
+      osc.frequency.exponentialRampToValueAtTime(140, t + 0.035);
+
+      clickGain.gain.setValueAtTime(0.09, t);
+      clickGain.gain.exponentialRampToValueAtTime(0.001, t + 0.045);
+
+      osc.connect(clickGain);
+      clickGain.connect(synthGainRef.current);
+      osc.start(t);
+      osc.stop(t + 0.05);
+    } catch (e) {}
+  }, [isMuted]);
+
+  // Photographic Studio Strobe Flash (Estilo Flash de Cámara / Pasarela)
+  const triggerPhotoFlash = useCallback(() => {
+    if (flashTimeoutRef.current) {
+      clearTimeout(flashTimeoutRef.current);
+    }
+    setIsFlashing(true);
+    setFlashKey((k) => k + 1);
+    playShutterClick();
+    flashTimeoutRef.current = window.setTimeout(() => {
+      setIsFlashing(false);
+    }, 440);
+  }, [playShutterClick]);
+
+  // Soft cinematic ambient flare & photographic strobe flash on slide transition
   const triggerSoftTransition = useCallback(() => {
     setAmbientGlow(true);
+    triggerPhotoFlash();
     setTimeout(() => setAmbientGlow(false), 350);
-  }, []);
+  }, [triggerPhotoFlash]);
 
   // Confetti Particle Burst
   const triggerConfetti = useCallback((amount = 60, customX?: number, customY?: number) => {
@@ -204,6 +247,35 @@ export default function App() {
     resize();
     window.addEventListener('resize', resize);
 
+    // 1. Initialize Luxury Photographic Studio Bokeh Lights (Lentes de estudio f/1.4)
+    const bokehPalette = [
+      { r: 255, g: 220, b: 175 }, // Champagne Warm Gold
+      { r: 244, g: 114, b: 182 }, // Studio Rose Pink
+      { r: 192, g: 132, b: 252 }, // Iris Lavender
+      { r: 147, g: 197, b: 253 }, // Soft Celestial Blue
+      { r: 255, g: 242, b: 225 }, // Soft Warm Ivory
+      { r: 251, g: 207, b: 232 }, // Pearl Blush
+    ];
+
+    bokehListRef.current = Array.from({ length: 24 }, () => {
+      const color = bokehPalette[Math.floor(Math.random() * bokehPalette.length)];
+      return {
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        baseRadius: Math.random() * 36 + 22, // 22px to 58px radius
+        radiusVariation: Math.random() * 12 + 6,
+        speedX: (Math.random() - 0.5) * 0.16,
+        speedY: (Math.random() - 0.5) * 0.14 - 0.12, // Gentle upward drifting motion
+        baseAlpha: Math.random() * 0.11 + 0.05, // Translucent soft glow
+        alphaVariation: Math.random() * 0.05 + 0.02,
+        phase: Math.random() * Math.PI * 2,
+        phaseSpeed: Math.random() * 0.016 + 0.008,
+        color,
+        hasLensRing: Math.random() > 0.4, // Subtle optical lens aberration ring
+      };
+    });
+
+    // 2. Initialize Crisp Ambient Star Sparkles
     particlesListRef.current = Array.from({ length: 36 }, () => ({
       x: Math.random() * canvas.width,
       y: Math.random() * canvas.height,
@@ -217,6 +289,45 @@ export default function App() {
 
     const render = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 0. Dynamic Photographic Studio Bokeh Effect (Círculos desenfocados de luz óptica)
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+
+      bokehListRef.current.forEach((b) => {
+        b.x += b.speedX;
+        b.y += b.speedY;
+        b.phase += b.phaseSpeed;
+
+        const maxR = b.baseRadius + b.radiusVariation;
+        if (b.x < -maxR) b.x = canvas.width + maxR;
+        if (b.x > canvas.width + maxR) b.x = -maxR;
+        if (b.y < -maxR) b.y = canvas.height + maxR;
+        if (b.y > canvas.height + maxR) b.y = -maxR;
+
+        // Gentle breathing pulsation in radius and opacity
+        const currentR = Math.max(14, b.baseRadius + Math.sin(b.phase) * b.radiusVariation);
+        const currentAlpha = Math.max(
+          0.025,
+          Math.min(0.24, b.baseAlpha + Math.sin(b.phase * 0.85) * b.alphaVariation)
+        );
+
+        const grad = ctx.createRadialGradient(b.x, b.y, currentR * 0.15, b.x, b.y, currentR);
+        const { r, g, b: blue } = b.color;
+        grad.addColorStop(0, `rgba(${r}, ${g}, ${blue}, ${currentAlpha * 1.3})`);
+        grad.addColorStop(0.65, `rgba(${r}, ${g}, ${blue}, ${currentAlpha * 0.7})`);
+        if (b.hasLensRing) {
+          // Subtle lens iris rim characteristic of 85mm portrait lenses
+          grad.addColorStop(0.86, `rgba(${r}, ${g}, ${blue}, ${currentAlpha * 0.95})`);
+        }
+        grad.addColorStop(1, `rgba(${r}, ${g}, ${blue}, 0)`);
+
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, currentR, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+      });
+      ctx.restore();
 
       // 1. Ambient Sparkle Dust
       particlesListRef.current.forEach((p) => {
@@ -642,6 +753,18 @@ export default function App() {
           }`}
         />
 
+        {/* Photographic Strobe Flash Layer (Efecto Flash Fotográfico / Estrobo de Pasarela) */}
+        {isFlashing && (
+          <div
+            key={`strobe-flash-${flashKey}`}
+            className="absolute inset-0 pointer-events-none z-50 animate-photo-flash bg-white"
+            style={{ willChange: 'opacity' }}
+          >
+            {/* Center High-Intensity Xenon Lens Bloom */}
+            <div className="absolute inset-0 bg-radial from-white via-white/85 to-transparent" />
+          </div>
+        )}
+
         {/* =========================================================
             TOP STORY PROGRESS BAR (ACTIVE WHEN PRESENTATION STARTS)
             ========================================================= */}
@@ -755,9 +878,9 @@ export default function App() {
             </div>
 
             {/* Main Stage: Side-by-side Real Valentina & YoYa: Sparkle */}
-            <div className="relative w-full max-w-[320px] h-[340px] flex items-center justify-center my-auto">
+            <div className="relative w-full max-w-[320px] h-[305px] flex items-center justify-center my-auto">
               {/* YoYa: Sparkle Doll */}
-              <div className="absolute left-2 w-40 h-[300px] rounded-[26px] overflow-hidden border-2 border-white/40 shadow-[0_20px_45px_rgba(0,0,0,0.9)] -rotate-4 z-10 bg-black">
+              <div className="absolute left-2 w-40 h-[285px] rounded-[26px] overflow-hidden border-2 border-white/40 shadow-[0_20px_45px_rgba(0,0,0,0.9)] -rotate-4 z-10 bg-black">
                 <img
                   src={yoyaFrontImg}
                   alt="Muñeca Favorita YoYa Sparkle"
@@ -769,7 +892,7 @@ export default function App() {
               </div>
 
               {/* Real Valentina Portrait */}
-              <div className="absolute right-2 bottom-2 w-42 h-[310px] rounded-[26px] overflow-hidden border-3 border-pink-400 shadow-[0_20px_50px_rgba(244,114,182,0.5)] rotate-4 z-20 bg-black">
+              <div className="absolute right-2 bottom-0 w-42 h-[290px] rounded-[26px] overflow-hidden border-3 border-pink-400 shadow-[0_20px_50px_rgba(244,114,182,0.5)] rotate-4 z-20 bg-black">
                 <img
                   src={photoSrc}
                   onError={() => setPhotoSrc(vipPortraitFallback)}
@@ -777,29 +900,29 @@ export default function App() {
                   className="w-full h-full object-cover object-top"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-black/80 backdrop-blur-md border border-white/30 text-[10px] font-black text-white whitespace-nowrap shadow-lg">
+                <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-black/80 backdrop-blur-md border border-white/30 text-[10px] font-black text-white whitespace-nowrap shadow-lg">
                   👑 VALENTINA
                 </div>
               </div>
+            </div>
 
-              {/* Luxury Envelope Stamp "V" Overlay */}
-              <div
-                onClick={handleOpenEnvelope}
-                className={`absolute -bottom-4 z-30 cursor-pointer flex flex-col items-center transition-all duration-700 ${
-                  isOpeningEnvelope ? 'scale-125 rotate-12 opacity-0' : 'scale-100 hover:scale-105'
-                }`}
-              >
-                <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-amber-600 via-yellow-400 to-amber-200 p-0.5 shadow-[0_0_25px_rgba(251,191,36,0.8)] flex items-center justify-center">
-                  <div className="w-full h-full rounded-full bg-gradient-to-br from-red-800 to-red-950 border border-yellow-300/60 flex items-center justify-center shadow-inner">
-                    <span className="font-editorial text-2xl font-black text-yellow-300 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
-                      V
-                    </span>
-                  </div>
+            {/* Luxury Wax Stamp "V" Button - BAJADO para que no toque las fotos */}
+            <div
+              onClick={handleOpenEnvelope}
+              className={`cursor-pointer flex flex-col items-center mt-3 mb-2 transition-all duration-700 active:scale-95 z-30 ${
+                isOpeningEnvelope ? 'scale-125 rotate-12 opacity-0' : 'scale-100 hover:scale-105'
+              }`}
+            >
+              <div className="w-13 h-13 rounded-full bg-gradient-to-tr from-amber-600 via-yellow-400 to-amber-200 p-0.5 shadow-[0_0_25px_rgba(251,191,36,0.85)] flex items-center justify-center">
+                <div className="w-full h-full rounded-full bg-gradient-to-br from-red-800 to-red-950 border border-yellow-300/60 flex items-center justify-center shadow-inner">
+                  <span className="font-editorial text-2xl font-black text-yellow-300 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+                    V
+                  </span>
                 </div>
-                <span className="text-[9px] font-black uppercase tracking-widest text-yellow-300 bg-black/80 px-2 py-0.5 rounded-full mt-1 border border-yellow-400/40">
-                  Toca el sello
-                </span>
               </div>
+              <span className="text-[9px] font-black uppercase tracking-widest text-yellow-300 bg-black/80 px-2.5 py-0.5 rounded-full mt-1 border border-yellow-400/40 shadow-sm">
+                Toca el sello para abrir
+              </span>
             </div>
 
             {/* Date and Place Preview */}
