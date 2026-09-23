@@ -1,9 +1,8 @@
 /**
  * CONFIGURACIÓN DE LA FIESTA Y ARCHIVOS MULTIMEDIA
  *
- * Puedes cambiar aquí las rutas de los archivos o reemplazarlos directamente en las carpetas:
- * 1. MÚSICA: Guarda tu canción en: public/audio/musica.mp3
- * 2. FOTO DE VALENTINA: Guarda la foto en: public/images/valentina.jpg
+ * 1. MÚSICA: public/audio/musica.mp3
+ * 2. FOTO DE VALENTINA: public/images/valentina.jpg
  */
 
 export const PARTY_CONFIG = {
@@ -27,5 +26,11 @@ export const PARTY_CONFIG = {
   whatsappDisplay: '11 6427-0908',
   whatsappMessage: '¡Hola! Confirmo con mucha alegría mi asistencia al 9no cumpleaños de Valentina en Calle Manuel Ocampo 2443 🎀🎂🎉',
   mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Calle+Manuel+Ocampo+2443',
+  wazeUrl: 'https://waze.com/ul?q=Calle+Manuel+Ocampo+2443',
   countdownDate: '2026-10-03T17:00:00',
+
+  // Diseñador & Branding Ondigu
+  designerName: 'Ondigu',
+  designerUrl: 'https://ondigu.vercel.app/',
+  designerTagline: 'Invitaciones Digitales & Experiencias Web',
 };

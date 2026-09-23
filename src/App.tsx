@@ -19,10 +19,14 @@ import {
   RotateCcw,
   ChevronLeft,
   ChevronRight,
-  MessageCircle
+  MessageCircle,
+  Copy,
+  ExternalLink,
+  Navigation,
+  Heart
 } from 'lucide-react';
 
-// Party Configuration (Easily edit audio path, photos, and texts here)
+// Party Configuration
 import { PARTY_CONFIG } from './config/partyConfig';
 
 // Visual assets: Valentina and her favorite doll YoYa: Sparkle
@@ -33,12 +37,21 @@ import vipPortraitFallback from './assets/images/valentina_portrait_vip_17901822
 
 // Reading durations for each slide in milliseconds
 const SLIDE_DURATIONS = [
-  7000, // Slide 1: Bienvenida & Valentina 9 Años (7s)
-  7500, // Slide 2: Diversión & Su muñeca favorita YoYa: Sparkle (7.5s)
-  7500, // Slide 3: Estilo & Fotos de estudio (7.5s)
-  8500, // Slide 4: Coordenadas de la fiesta (8.5s)
-  7500, // Slide 5: Cuenta regresiva en vivo (7.5s)
-  12000, // Slide 6: Gran final & Confirmación por WhatsApp (12s)
+  7500,  // Slide 1: Bienvenida & Valentina 9 Años (7.5s)
+  8000,  // Slide 2: Diversión & Muñeca Favorita YoYa: Sparkle (8s)
+  8000,  // Slide 3: Estilo & Fotos de estudio (8s)
+  9000,  // Slide 4: Coordenadas de la fiesta & Navegación Waze/Maps (9s)
+  8000,  // Slide 5: Cuenta regresiva en vivo (8s)
+  14000, // Slide 6: Gran final, WhatsApp & Firma Ondigu (14s)
+];
+
+// Quick interactive reactions
+const REACTIONS = [
+  { emoji: '🎂', label: '¡Feliz Cumple!', color: '#f472b6' },
+  { emoji: '💖', label: '¡Te quiero!', color: '#ec4899' },
+  { emoji: '👗', label: '¡Look Glam!', color: '#c084fc' },
+  { emoji: '✨', label: '¡Allí estaré!', color: '#fbbf24' },
+  { emoji: '🎉', label: '¡A festejar!', color: '#60a5fa' },
 ];
 
 export default function App() {
@@ -49,20 +62,29 @@ export default function App() {
 
   // Presentation State
   const [hasStarted, setHasStarted] = useState<boolean>(false);
+  const [isOpeningEnvelope, setIsOpeningEnvelope] = useState<boolean>(false);
   const [currentSlide, setCurrentSlide] = useState<number>(0);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [slideProgress, setSlideProgress] = useState<number>(0); // 0 to 100%
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [ambientGlow, setAmbientGlow] = useState<boolean>(false);
+
+  // Interactive Feedback States
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
+  const [copiedAddress, setCopiedAddress] = useState<boolean>(false);
+  const [reactionToast, setReactionToast] = useState<string | null>(null);
+
+  // Floating Reaction Emojis
+  const [floatingEmojis, setFloatingEmojis] = useState<{ id: number; emoji: string; x: number; y: number }[]>([]);
 
   // References
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const confettiListRef = useRef<any[]>([]);
   const particlesListRef = useRef<any[]>([]);
+  const touchSparklesRef = useRef<any[]>([]);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
 
-  // Web Audio Synthesizer (Fallback in case user hasn't copied the MP3 file yet)
+  // Web Audio Synthesizer (Fallback in case user audio is muted/pending)
   const audioCtxRef = useRef<AudioContext | null>(null);
   const synthIntervalRef = useRef<number | null>(null);
   const synthGainRef = useRef<GainNode | null>(null);
@@ -99,37 +121,73 @@ export default function App() {
   // Soft cinematic ambient flare on slide transition
   const triggerSoftTransition = useCallback(() => {
     setAmbientGlow(true);
-    setTimeout(() => setAmbientGlow(false), 300);
+    setTimeout(() => setAmbientGlow(false), 350);
   }, []);
 
   // Confetti Particle Burst
-  const triggerConfetti = useCallback((amount = 55) => {
+  const triggerConfetti = useCallback((amount = 60, customX?: number, customY?: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const colors = ['#ffffff', '#f472b6', '#c084fc', '#fcd34d', '#93c5fd', '#fbcfe8'];
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height * 0.42;
+    const colors = ['#ffffff', '#f472b6', '#c084fc', '#fcd34d', '#93c5fd', '#fbcfe8', '#ffd700'];
+    const centerX = customX !== undefined ? customX : canvas.width / 2;
+    const centerY = customY !== undefined ? customY : canvas.height * 0.42;
 
     const pieces = Array.from({ length: amount }, () => {
       const angle = Math.random() * Math.PI * 2;
-      const speed = Math.random() * 6.5 + 2.5;
+      const speed = Math.random() * 7 + 2.5;
       return {
         x: centerX,
         y: centerY,
         vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 3.2,
+        vy: Math.sin(angle) * speed - 3.5,
         gravity: 0.14,
-        size: Math.random() * 6 + 3.5,
+        size: Math.random() * 6.5 + 3.5,
         color: colors[Math.floor(Math.random() * colors.length)],
         rotation: Math.random() * Math.PI,
-        rotSpeed: (Math.random() - 0.5) * 0.2,
-        life: 1.25,
+        rotSpeed: (Math.random() - 0.5) * 0.22,
+        life: 1.3,
       };
     });
     confettiListRef.current.push(...pieces);
   }, []);
 
-  // Canvas floating sparkles and confetti animation
+  // Interactive Touch / Pointer Sparkles (Efecto Mágico al tocar la pantalla)
+  const spawnTouchSparkle = useCallback((clientX: number, clientY: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+
+    const colors = ['#ffffff', '#f472b6', '#c084fc', '#ffd700', '#fbcfe8'];
+    const sparkles = Array.from({ length: 6 }, () => {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = Math.random() * 3 + 1;
+      return {
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        size: Math.random() * 4 + 2,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        life: 1.0,
+      };
+    });
+    touchSparklesRef.current.push(...sparkles);
+  }, []);
+
+  // Pointer event handlers for touching magic
+  const handlePointerDown = (e: React.PointerEvent) => {
+    spawnTouchSparkle(e.clientX, e.clientY);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (Math.random() < 0.35) {
+      spawnTouchSparkle(e.clientX, e.clientY);
+    }
+  };
+
+  // Canvas floating sparkles, confetti & touch animation loop
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -160,7 +218,7 @@ export default function App() {
     const render = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Star sparkles
+      // 1. Ambient Sparkle Dust
       particlesListRef.current.forEach((p) => {
         p.x += p.speedX;
         p.y += p.speedY;
@@ -184,7 +242,31 @@ export default function App() {
         ctx.restore();
       });
 
-      // Confetti physics
+      // 2. Interactive Touch Sparkles
+      const touchSp = touchSparklesRef.current;
+      for (let i = touchSp.length - 1; i >= 0; i--) {
+        const s = touchSp[i];
+        s.x += s.vx;
+        s.y += s.vy;
+        s.life -= 0.035;
+
+        if (s.life <= 0) {
+          touchSp.splice(i, 1);
+          continue;
+        }
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size * s.life, 0, Math.PI * 2);
+        ctx.fillStyle = s.color;
+        ctx.globalAlpha = s.life;
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = s.color;
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // 3. Confetti physics
       const conf = confettiListRef.current;
       for (let i = conf.length - 1; i >= 0; i--) {
         const c = conf[i];
@@ -218,7 +300,7 @@ export default function App() {
     };
   }, []);
 
-  // Web Audio Synthesizer (Upbeat Happy Pop Celebration Melody - Fallback)
+  // Web Audio Synthesizer (Upbeat Pop Melody - Fallback)
   const initWebAudio = () => {
     if (audioCtxRef.current) return;
     try {
@@ -317,7 +399,7 @@ export default function App() {
     }
   };
 
-  // Play music (Starts MP3 track automatically, or fallback if MP3 is not yet created)
+  // Play party music (Directly plays user's uploaded musica.mp3)
   const playPartyMusic = () => {
     if (audioElementRef.current) {
       audioElementRef.current.play()
@@ -389,20 +471,47 @@ export default function App() {
     setSlideProgress(0);
   };
 
-  // Start presentation when user clicks the opening button
-  const handleStartInvitation = () => {
-    triggerSoftTransition();
-    setHasStarted(true);
-    setCurrentSlide(0);
-    setSlideProgress(0);
-    triggerConfetti(70);
+  // Start presentation with Luxury Envelope Opening Animation
+  const handleOpenEnvelope = () => {
+    if (isOpeningEnvelope) return;
+    setIsOpeningEnvelope(true);
+    triggerConfetti(85);
+
+    // Play music immediately on user touch
     playPartyMusic();
+
+    setTimeout(() => {
+      triggerSoftTransition();
+      setHasStarted(true);
+      setCurrentSlide(0);
+      setSlideProgress(0);
+      setIsOpeningEnvelope(false);
+    }, 900);
   };
 
   // Replay presentation from slide 0
   const handleReplay = () => {
     goToSlide(0);
     playPartyMusic();
+  };
+
+  // Send an interactive wish / reaction to Valentina
+  const handleSendReaction = (r: typeof REACTIONS[0], e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top;
+
+    triggerConfetti(25, x, y);
+
+    const newId = Date.now() + Math.random();
+    setFloatingEmojis((prev) => [...prev, { id: newId, emoji: r.emoji, x: Math.random() * 260 + 40, y: 550 }]);
+
+    setTimeout(() => {
+      setFloatingEmojis((prev) => prev.filter((item) => item.id !== newId));
+    }, 2200);
+
+    setReactionToast(`¡Enviaste ${r.emoji} "${r.label}" a Valentina!`);
+    setTimeout(() => setReactionToast(null), 2500);
   };
 
   // WhatsApp confirmation: Direct link to WhatsApp
@@ -415,6 +524,18 @@ export default function App() {
   // Google Maps
   const handleMaps = () => {
     window.open(party.mapsUrl, '_blank');
+  };
+
+  // Waze Navigation
+  const handleWaze = () => {
+    window.open(party.wazeUrl, '_blank');
+  };
+
+  // Copy Address
+  const handleCopyAddress = () => {
+    navigator.clipboard?.writeText(party.direccion);
+    setCopiedAddress(true);
+    setTimeout(() => setCopiedAddress(false), 2500);
   };
 
   // Google Calendar
@@ -447,9 +568,26 @@ export default function App() {
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
+  // Open Ondigu Designer Website
+  const handleOpenOndigu = () => {
+    window.open(party.designerUrl, '_blank');
+  };
+
+  // Contact Ondigu for Custom Invitation
+  const handleContactOndigu = () => {
+    const msg = encodeURIComponent(
+      '¡Hola Ondigu! Vi la invitación digital de Valentina y me encantó. Quisiera consultar para hacer una invitación personalizada para mi evento.'
+    );
+    window.open(`https://wa.me/5491164270908?text=${msg}`, '_blank');
+  };
+
   return (
-    <div className="relative w-full h-screen bg-[#040508] flex items-center justify-center overflow-hidden select-none">
-      {/* Background Birthday Song */}
+    <div
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      className="relative w-full h-screen bg-[#040508] flex items-center justify-center overflow-hidden select-none touch-none"
+    >
+      {/* Background Birthday Song (musica.mp3) */}
       <audio
         ref={audioElementRef}
         src={party.audioUrl}
@@ -477,8 +615,25 @@ export default function App() {
           />
         </div>
 
-        {/* 2D Canvas for Sparkling Floating Particles & Confetti */}
+        {/* 2D Canvas for Sparkling Floating Particles, Confetti & Touch Sparks */}
         <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-10" />
+
+        {/* Floating Animated Emojis Burst */}
+        <div className="absolute inset-0 pointer-events-none z-35 overflow-hidden">
+          {floatingEmojis.map((item) => (
+            <div
+              key={item.id}
+              className="absolute text-3xl animate-bounce drop-shadow-[0_0_15px_rgba(244,114,182,0.8)] transition-all duration-1000"
+              style={{
+                left: `${item.x}px`,
+                bottom: '120px',
+                animation: 'floatUp 2.2s ease-out forwards',
+              }}
+            >
+              {item.emoji}
+            </div>
+          ))}
+        </div>
 
         {/* Soft Cinematic Ambient Flare Overlay for Crossfade Transitions */}
         <div
@@ -515,7 +670,6 @@ export default function App() {
 
         {/* =========================================================
             HEADER TOOLBAR (100% CLEAN: SOUND, AUTO-PLAY, SHARE)
-            No configuration, settings, or upload buttons for guests.
             ========================================================= */}
         <div className="absolute top-6 left-3 right-3 z-40 flex items-center justify-between pointer-events-auto">
           {/* Sound Toggle + Animated Equalizer */}
@@ -559,7 +713,7 @@ export default function App() {
             </button>
           )}
 
-          {/* Right Action: Share Link Only */}
+          {/* Right Action: Share Link */}
           <div className="flex items-center gap-1.5">
             <button
               onClick={handleShare}
@@ -576,10 +730,10 @@ export default function App() {
             ========================================================= */}
         <div className="relative flex-1 w-full overflow-hidden">
           {/* -------------------------------------------------------
-              COVER SCREEN: VALENTINA Y LA MUÑECA INICIAL
+              COVER SCREEN: LUXURY ENVELOPE & OPENING EXPERIENCE
               ------------------------------------------------------- */}
           <div
-            className={`absolute inset-0 flex flex-col items-center justify-between p-5 pt-18 pb-8 text-center transition-all duration-700 ease-in-out ${
+            className={`absolute inset-0 flex flex-col items-center justify-between p-5 pt-16 pb-8 text-center transition-all duration-700 ease-in-out ${
               !hasStarted
                 ? 'opacity-100 scale-100 pointer-events-auto z-30 translate-y-0'
                 : 'opacity-0 scale-95 pointer-events-none z-0 -translate-y-2'
@@ -587,8 +741,10 @@ export default function App() {
           >
             {/* Top Title Banner */}
             <div>
-              <div className="text-[10px] tracking-[4px] text-pink-400 font-extrabold uppercase mb-1 drop-shadow-md">
-                ✨ ¡ESTÁS INVITADO/A! ✨
+              <div className="text-[10px] tracking-[4px] text-pink-400 font-extrabold uppercase mb-1 drop-shadow-md flex items-center justify-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-pink-400 animate-spin" />
+                <span>INVITACIÓN VIP EXCLUSIVA</span>
+                <Sparkles className="w-3.5 h-3.5 text-pink-400 animate-spin" />
               </div>
               <h1 className="font-editorial text-4xl font-extrabold tracking-[5px] text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-100 to-pink-200 drop-shadow-[0_0_25px_rgba(255,255,255,0.4)]">
                 {party.nombre}
@@ -598,10 +754,10 @@ export default function App() {
               </div>
             </div>
 
-            {/* Main Stage: Valentina and her favorite doll YoYa: Sparkle right side-by-side */}
-            <div className="relative w-full max-w-[320px] h-[360px] flex items-center justify-center my-auto">
+            {/* Main Stage: Side-by-side Real Valentina & YoYa: Sparkle */}
+            <div className="relative w-full max-w-[320px] h-[340px] flex items-center justify-center my-auto">
               {/* YoYa: Sparkle Doll */}
-              <div className="absolute left-2 w-42 h-[320px] rounded-[26px] overflow-hidden border-2 border-white/40 shadow-[0_20px_45px_rgba(0,0,0,0.9)] -rotate-4 z-10 bg-black">
+              <div className="absolute left-2 w-40 h-[300px] rounded-[26px] overflow-hidden border-2 border-white/40 shadow-[0_20px_45px_rgba(0,0,0,0.9)] -rotate-4 z-10 bg-black">
                 <img
                   src={yoyaFrontImg}
                   alt="Muñeca Favorita YoYa Sparkle"
@@ -612,7 +768,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Valentina Portrait */}
+              {/* Real Valentina Portrait */}
               <div className="absolute right-2 bottom-2 w-42 h-[310px] rounded-[26px] overflow-hidden border-3 border-pink-400 shadow-[0_20px_50px_rgba(244,114,182,0.5)] rotate-4 z-20 bg-black">
                 <img
                   src={photoSrc}
@@ -625,6 +781,25 @@ export default function App() {
                   👑 VALENTINA
                 </div>
               </div>
+
+              {/* Luxury Envelope Stamp "V" Overlay */}
+              <div
+                onClick={handleOpenEnvelope}
+                className={`absolute -bottom-4 z-30 cursor-pointer flex flex-col items-center transition-all duration-700 ${
+                  isOpeningEnvelope ? 'scale-125 rotate-12 opacity-0' : 'scale-100 hover:scale-105'
+                }`}
+              >
+                <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-amber-600 via-yellow-400 to-amber-200 p-0.5 shadow-[0_0_25px_rgba(251,191,36,0.8)] flex items-center justify-center">
+                  <div className="w-full h-full rounded-full bg-gradient-to-br from-red-800 to-red-950 border border-yellow-300/60 flex items-center justify-center shadow-inner">
+                    <span className="font-editorial text-2xl font-black text-yellow-300 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+                      V
+                    </span>
+                  </div>
+                </div>
+                <span className="text-[9px] font-black uppercase tracking-widest text-yellow-300 bg-black/80 px-2 py-0.5 rounded-full mt-1 border border-yellow-400/40">
+                  Toca el sello
+                </span>
+              </div>
             </div>
 
             {/* Date and Place Preview */}
@@ -634,11 +809,11 @@ export default function App() {
 
             {/* THE BIG START BUTTON */}
             <button
-              onClick={handleStartInvitation}
+              onClick={handleOpenEnvelope}
               className="relative w-full max-w-[310px] py-4 px-6 rounded-full font-black text-sm tracking-[2.5px] uppercase bg-gradient-to-r from-white via-slate-100 to-pink-100 text-slate-900 shadow-[0_10px_35px_rgba(255,255,255,0.4),0_0_25px_rgba(244,114,182,0.4)] gleam-effect active:scale-95 transition-transform flex items-center justify-center gap-2.5 cursor-pointer overflow-hidden"
             >
               <Sparkles className="w-5 h-5 text-pink-500 animate-spin" />
-              <span>✨ ABRIR INVITACIÓN ✨</span>
+              <span>{isOpeningEnvelope ? '¡ABRIENDO...' : '✨ ABRIR INVITACIÓN ✨'}</span>
             </button>
           </div>
 
@@ -646,7 +821,7 @@ export default function App() {
               SLIDESHOW CONTAINER (ACTIVE WHEN hasStarted = true)
               ------------------------------------------------------- */}
           <div
-            className={`absolute inset-0 flex flex-col justify-between p-4 pt-16 pb-6 text-center select-none overflow-hidden transition-all duration-700 ease-in-out ${
+            className={`absolute inset-0 flex flex-col justify-between p-4 pt-16 pb-4 text-center select-none overflow-hidden transition-all duration-700 ease-in-out ${
               hasStarted
                 ? 'opacity-100 scale-100 pointer-events-auto z-20 translate-y-0'
                 : 'opacity-0 scale-105 pointer-events-none z-0 translate-y-2'
@@ -657,14 +832,14 @@ export default function App() {
               onClick={() => {
                 if (currentSlide > 0) goToSlide(currentSlide - 1);
               }}
-              className="absolute left-0 top-14 bottom-14 w-1/4 z-30 cursor-pointer"
+              className="absolute left-0 top-14 bottom-24 w-1/4 z-30 cursor-pointer"
               title="Tocar para anterior"
             />
             <div
               onClick={() => {
                 if (currentSlide < SLIDE_DURATIONS.length - 1) goToSlide(currentSlide + 1);
               }}
-              className="absolute right-0 top-14 bottom-14 w-1/4 z-30 cursor-pointer"
+              className="absolute right-0 top-14 bottom-24 w-1/4 z-30 cursor-pointer"
               title="Tocar para siguiente"
             />
 
@@ -678,8 +853,8 @@ export default function App() {
                     : 'opacity-0 scale-95 pointer-events-none z-10 translate-y-1'
                 }`}
               >
-                <div className="flex items-center justify-center gap-3 mb-4">
-                  <div className="w-36 h-52 rounded-2xl overflow-hidden border-2 border-pink-400 shadow-[0_15px_40px_rgba(244,114,182,0.4)] relative bg-black">
+                <div className="flex items-center justify-center gap-3 mb-3">
+                  <div className="w-36 h-50 rounded-2xl overflow-hidden border-2 border-pink-400 shadow-[0_15px_40px_rgba(244,114,182,0.4)] relative bg-black">
                     <img
                       src={photoSrc}
                       onError={() => setPhotoSrc(vipPortraitFallback)}
@@ -690,7 +865,7 @@ export default function App() {
                       👑 Valentina
                     </div>
                   </div>
-                  <div className="w-36 h-52 rounded-2xl overflow-hidden border-2 border-white/40 shadow-[0_15px_40px_rgba(0,0,0,0.8)] relative bg-black">
+                  <div className="w-36 h-50 rounded-2xl overflow-hidden border-2 border-white/40 shadow-[0_15px_40px_rgba(0,0,0,0.8)] relative bg-black">
                     <img src={yoyaFrontImg} alt="YoYa Sparkle" className="w-full h-full object-cover object-top" />
                     <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-full bg-black/70 text-[9px] font-bold text-white">
                       💖 YoYa Sparkle
@@ -704,13 +879,13 @@ export default function App() {
                 <h2 className="font-editorial text-4xl font-extrabold tracking-[5px] text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-100 to-pink-200">
                   {party.nombre}
                 </h2>
-                <div className="text-xs tracking-[5px] text-slate-300 uppercase font-semibold mt-1">
+                <div className="text-xs tracking-[5px] text-slate-300 uppercase font-semibold mt-0.5">
                   CUMPLE
                 </div>
-                <div className="font-editorial text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-100 to-slate-400 drop-shadow-[0_0_30px_rgba(255,255,255,0.7)] leading-none mt-1">
+                <div className="font-editorial text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-100 to-slate-400 drop-shadow-[0_0_30px_rgba(255,255,255,0.7)] leading-none mt-1">
                   {party.edad}
                 </div>
-                <p className="text-xs text-pink-200/90 font-medium italic mt-3 max-w-[280px]">
+                <p className="text-xs text-pink-200/90 font-medium italic mt-2.5 max-w-[280px]">
                   ¡Y quiere compartir este día tan especial contigo!
                 </p>
               </div>
@@ -727,7 +902,7 @@ export default function App() {
                   ✨ SU MUÑECA FAVORITA ✨
                 </div>
 
-                <div className="w-56 h-[340px] rounded-[28px] overflow-hidden border-2 border-white/40 shadow-[0_20px_50px_rgba(0,0,0,0.9),0_0_25px_rgba(244,114,182,0.3)] relative bg-black mb-3">
+                <div className="w-56 h-[330px] rounded-[28px] overflow-hidden border-2 border-white/40 shadow-[0_20px_50px_rgba(0,0,0,0.9),0_0_25px_rgba(244,114,182,0.3)] relative bg-black mb-3">
                   <img src={yoyaFrontImg} alt="YoYa Sparkle Coat" className="w-full h-full object-cover object-top" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
                   <div className="absolute bottom-3 left-3 right-3 text-left">
@@ -782,7 +957,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* SLIDE 4: COORDENADAS DE LA FIESTA */}
+              {/* SLIDE 4: COORDENADAS DE LA FIESTA & NAVEGACIÓN */}
               <div
                 className={`absolute inset-0 flex flex-col items-center justify-center transition-all duration-700 ease-in-out ${
                   currentSlide === 3
@@ -790,16 +965,16 @@ export default function App() {
                     : 'opacity-0 scale-95 pointer-events-none z-10 translate-y-1'
                 }`}
               >
-                <div className="w-full max-w-[340px] glass-vip-card rounded-[26px] p-5 text-left border border-white/20 shadow-2xl relative overflow-hidden">
+                <div className="w-full max-w-[340px] glass-vip-card rounded-[26px] p-4 text-left border border-white/20 shadow-2xl relative overflow-hidden">
                   <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-pink-400 via-white to-blue-400" />
 
-                  <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-3">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-2.5 mb-2.5">
                     <div>
                       <div className="font-editorial text-base font-bold text-white">
                         🌸 TE ESPERAMOS 🌸
                       </div>
                       <div className="text-[10px] text-pink-400 font-bold tracking-wider uppercase">
-                        PARA CELEBRAR JUNTOS
+                        COORDENADAS DE LA FIESTA
                       </div>
                     </div>
                     <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-pink-400 shadow-md">
@@ -813,39 +988,66 @@ export default function App() {
                   </div>
 
                   {/* Date */}
-                  <div className="flex items-start gap-3 p-2.5 rounded-xl bg-white/5 border border-white/10 mb-2">
-                    <div className="w-8 h-8 rounded-lg bg-pink-500/20 border border-pink-400/40 flex items-center justify-center text-pink-300 flex-shrink-0">
-                      <Calendar className="w-4 h-4" />
+                  <div className="flex items-start gap-2.5 p-2 rounded-xl bg-white/5 border border-white/10 mb-2">
+                    <div className="w-7 h-7 rounded-lg bg-pink-500/20 border border-pink-400/40 flex items-center justify-center text-pink-300 flex-shrink-0">
+                      <Calendar className="w-3.5 h-3.5" />
                     </div>
                     <div>
-                      <div className="text-[9px] uppercase font-bold text-slate-400">FECHA</div>
-                      <div className="text-sm font-extrabold text-white">{party.fecha}</div>
+                      <div className="text-[8px] uppercase font-bold text-slate-400">FECHA</div>
+                      <div className="text-xs font-extrabold text-white">{party.fecha}</div>
                     </div>
                   </div>
 
                   {/* Time */}
-                  <div className="flex items-start gap-3 p-2.5 rounded-xl bg-white/5 border border-white/10 mb-2">
-                    <div className="w-8 h-8 rounded-lg bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-blue-300 flex-shrink-0">
-                      <Clock className="w-4 h-4" />
+                  <div className="flex items-start gap-2.5 p-2 rounded-xl bg-white/5 border border-white/10 mb-2">
+                    <div className="w-7 h-7 rounded-lg bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-blue-300 flex-shrink-0">
+                      <Clock className="w-3.5 h-3.5" />
                     </div>
                     <div>
-                      <div className="text-[9px] uppercase font-bold text-slate-400">HORARIO</div>
-                      <div className="text-sm font-extrabold text-white">{party.hora}</div>
+                      <div className="text-[8px] uppercase font-bold text-slate-400">HORARIO</div>
+                      <div className="text-xs font-extrabold text-white">{party.hora}</div>
                     </div>
                   </div>
 
-                  {/* Location */}
-                  <div className="flex items-start gap-3 p-2.5 rounded-xl bg-white/5 border border-white/10">
-                    <div className="w-8 h-8 rounded-lg bg-purple-500/20 border border-purple-400/40 flex items-center justify-center text-purple-300 flex-shrink-0">
-                      <Home className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="text-[9px] uppercase font-bold text-slate-400">LUGAR</div>
-                      <div className="text-sm font-extrabold text-white">{party.lugar}</div>
-                      <div className="text-xs text-pink-300 font-semibold flex items-center gap-1 mt-0.5">
-                        <MapPin className="w-3.5 h-3.5" />
-                        <span>{party.direccion}</span>
+                  {/* Location & Direct Navigation Buttons */}
+                  <div className="p-2 rounded-xl bg-white/5 border border-white/10">
+                    <div className="flex items-start gap-2.5 mb-2">
+                      <div className="w-7 h-7 rounded-lg bg-purple-500/20 border border-purple-400/40 flex items-center justify-center text-purple-300 flex-shrink-0">
+                        <Home className="w-3.5 h-3.5" />
                       </div>
+                      <div className="flex-1">
+                        <div className="text-[8px] uppercase font-bold text-slate-400">LUGAR</div>
+                        <div className="text-xs font-extrabold text-white">{party.lugar}</div>
+                        <div className="text-[11px] text-pink-300 font-semibold flex items-center gap-1 mt-0.5">
+                          <MapPin className="w-3 h-3" />
+                          <span>{party.direccion}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Waze / Google Maps / Copy Address */}
+                    <div className="grid grid-cols-3 gap-1.5 pt-1 border-t border-white/10">
+                      <button
+                        onClick={handleMaps}
+                        className="py-1.5 px-2 rounded-lg bg-blue-600/30 hover:bg-blue-600/50 border border-blue-400/30 text-blue-200 text-[9px] font-bold flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
+                      >
+                        <MapPin className="w-3 h-3" />
+                        <span>Maps</span>
+                      </button>
+                      <button
+                        onClick={handleWaze}
+                        className="py-1.5 px-2 rounded-lg bg-cyan-600/30 hover:bg-cyan-600/50 border border-cyan-400/30 text-cyan-200 text-[9px] font-bold flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
+                      >
+                        <Navigation className="w-3 h-3" />
+                        <span>Waze</span>
+                      </button>
+                      <button
+                        onClick={handleCopyAddress}
+                        className="py-1.5 px-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white text-[9px] font-bold flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
+                      >
+                        <Copy className="w-3 h-3" />
+                        <span>{copiedAddress ? '¡Copiado!' : 'Copiar'}</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -859,7 +1061,7 @@ export default function App() {
                     : 'opacity-0 scale-95 pointer-events-none z-10 translate-y-1'
                 }`}
               >
-                <div className="w-24 h-24 rounded-full p-1 bg-gradient-to-tr from-pink-500 to-purple-500 shadow-[0_0_30px_rgba(244,114,182,0.6)] mb-4">
+                <div className="w-24 h-24 rounded-full p-1 bg-gradient-to-tr from-pink-500 to-purple-500 shadow-[0_0_30px_rgba(244,114,182,0.6)] mb-3">
                   <div className="w-full h-full rounded-full overflow-hidden border-2 border-white">
                     <img
                       src={photoSrc}
@@ -873,11 +1075,11 @@ export default function App() {
                 <div className="text-[11px] tracking-[3px] text-pink-400 font-bold uppercase mb-1">
                   ⏳ CUENTA REGRESIVA
                 </div>
-                <h3 className="font-editorial text-2xl font-black text-white tracking-wider mb-4">
+                <h3 className="font-editorial text-2xl font-black text-white tracking-wider mb-3">
                   ¡CADA VEZ FALTA MENOS!
                 </h3>
 
-                <div className="grid grid-cols-4 gap-2.5 w-full max-w-[320px] mb-4">
+                <div className="grid grid-cols-4 gap-2 w-full max-w-[310px] mb-3">
                   <div className="bg-white/10 border border-white/20 rounded-2xl p-2 text-center backdrop-blur-md">
                     <div className="font-editorial text-2xl font-black text-white leading-none">
                       {String(timeLeft.days).padStart(2, '0')}
@@ -904,40 +1106,48 @@ export default function App() {
                   </div>
                 </div>
 
+                <button
+                  onClick={handleCalendar}
+                  className="py-2 px-4 rounded-full bg-pink-500/20 hover:bg-pink-500/30 border border-pink-400/40 text-pink-200 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer mb-2"
+                >
+                  <Calendar className="w-3.5 h-3.5 text-pink-400" />
+                  <span>Guardar en mi Calendario</span>
+                </button>
+
                 <p className="text-xs text-slate-300 font-medium max-w-[280px]">
                   Contando los segundos para vernos y festejar juntos 🎉🎈
                 </p>
               </div>
 
-              {/* SLIDE 6: GRAN FINAL & CONFIRMACIÓN POR WHATSAPP (1164270908) */}
+              {/* SLIDE 6: GRAN FINAL, WHATSAPP & FIRMA DE AUTOR ONDIGU */}
               <div
-                className={`absolute inset-0 flex flex-col items-center justify-between py-2 transition-all duration-700 ease-in-out ${
+                className={`absolute inset-0 flex flex-col items-center justify-between py-1 transition-all duration-700 ease-in-out ${
                   currentSlide === 5
                     ? 'opacity-100 scale-100 pointer-events-auto z-20 translate-y-0'
                     : 'opacity-0 scale-95 pointer-events-none z-10 translate-y-1'
                 }`}
               >
                 <div>
-                  <div className="font-script text-5xl text-pink-400 drop-shadow-[0_0_20px_rgba(244,114,182,0.7)]">
+                  <div className="font-script text-4xl text-pink-400 drop-shadow-[0_0_20px_rgba(244,114,182,0.7)]">
                     🎈 ¡No faltes! 🎈
                   </div>
-                  <h3 className="font-editorial text-xl font-black tracking-widest text-white mt-1">
+                  <h3 className="font-editorial text-lg font-black tracking-widest text-white mt-0.5">
                     {party.nombre} CUMPLE {party.edad} AÑOS
                   </h3>
-                  <p className="text-xs text-pink-200/90 italic mt-1 px-4 leading-relaxed font-medium">
+                  <p className="text-[11px] text-pink-200/90 italic px-4 font-medium">
                     "{party.mensajeEspecial}"
                   </p>
                 </div>
 
-                {/* Trio Display: YoYa Sparkle + Valentina + YoYa Earmuffs */}
-                <div className="relative w-72 h-52 flex items-center justify-center my-auto">
-                  <div className="absolute left-2 w-32 h-44 rounded-2xl overflow-hidden border-2 border-white/30 shadow-xl -rotate-6 z-10 bg-black">
+                {/* Trio Display: YoYa Sparkle + Real Valentina */}
+                <div className="relative w-64 h-40 flex items-center justify-center my-1">
+                  <div className="absolute left-2 w-28 h-36 rounded-2xl overflow-hidden border-2 border-white/30 shadow-xl -rotate-6 z-10 bg-black">
                     <img src={yoyaFrontImg} alt="YoYa Coat" className="w-full h-full object-cover object-top" />
                   </div>
-                  <div className="absolute right-2 w-32 h-44 rounded-2xl overflow-hidden border-2 border-white/30 shadow-xl rotate-6 z-20 bg-black">
+                  <div className="absolute right-2 w-28 h-36 rounded-2xl overflow-hidden border-2 border-white/30 shadow-xl rotate-6 z-20 bg-black">
                     <img src={yoyaEarmuffsImg} alt="YoYa Earmuffs" className="w-full h-full object-cover object-top" />
                   </div>
-                  <div className="absolute bottom-0 w-36 h-42 rounded-2xl overflow-hidden border-3 border-pink-400 shadow-[0_10px_35px_rgba(244,114,182,0.8)] z-30 bg-black">
+                  <div className="absolute bottom-0 w-32 h-38 rounded-2xl overflow-hidden border-3 border-pink-400 shadow-[0_10px_35px_rgba(244,114,182,0.8)] z-30 bg-black">
                     <img
                       src={photoSrc}
                       onError={() => setPhotoSrc(vipPortraitFallback)}
@@ -948,85 +1158,141 @@ export default function App() {
                 </div>
 
                 {/* Final WhatsApp Action Button */}
-                <div className="w-full max-w-[330px] flex flex-col gap-2">
+                <div className="w-full max-w-[320px] flex flex-col gap-1.5">
                   <button
                     onClick={handleWhatsApp}
-                    className="w-full py-3.5 px-4 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs tracking-wider uppercase flex items-center justify-center gap-2 shadow-[0_8px_30px_rgba(16,185,129,0.55)] active:scale-95 transition-all cursor-pointer border border-emerald-400/40 animate-pulse"
+                    className="w-full py-3 px-4 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs tracking-wider uppercase flex items-center justify-center gap-2 shadow-[0_8px_30px_rgba(16,185,129,0.55)] active:scale-95 transition-all cursor-pointer border border-emerald-400/40 animate-pulse"
                   >
                     <MessageCircle className="w-4 h-4 fill-white" />
                     <span>CONFIRMAR ASISTENCIA AL WHATSAPP</span>
                   </button>
-                  <div className="text-[10px] text-emerald-300 font-semibold tracking-wide">
-                    WhatsApp: {party.whatsappDisplay}
-                  </div>
 
-                  <div className="flex gap-2 mt-0.5">
+                  <div className="flex gap-1.5">
                     <button
                       onClick={handleMaps}
-                      className="flex-1 py-2.5 px-3 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-[11px] tracking-wider uppercase flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                      className="flex-1 py-2 px-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-[10px] tracking-wider uppercase flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
                     >
-                      <MapPin className="w-3.5 h-3.5 text-blue-400" />
+                      <MapPin className="w-3 h-3 text-blue-400" />
                       <span>MAPS</span>
                     </button>
                     <button
                       onClick={handleCalendar}
-                      className="flex-1 py-2.5 px-3 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-[11px] tracking-wider uppercase flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                      className="flex-1 py-2 px-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-[10px] tracking-wider uppercase flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
                     >
-                      <Calendar className="w-3.5 h-3.5 text-pink-400" />
+                      <Calendar className="w-3 h-3 text-pink-400" />
                       <span>AGENDAR</span>
                     </button>
                     <button
                       onClick={handleReplay}
                       title="Repetir presentación"
-                      className="py-2.5 px-3.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-[11px] flex items-center justify-center active:scale-95 transition-all cursor-pointer"
+                      className="py-2 px-3 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-[10px] flex items-center justify-center active:scale-95 transition-all cursor-pointer"
                     >
-                      <RotateCcw className="w-3.5 h-3.5 text-slate-200" />
+                      <RotateCcw className="w-3 h-3 text-slate-200" />
+                    </button>
+                  </div>
+
+                  {/* =========================================================
+                      ONDIGU DESIGNER VIP BRANDING & CLIENT CONVERSION ENGINE
+                      ========================================================= */}
+                  <div className="mt-1 pt-2 border-t border-white/15 flex flex-col items-center">
+                    <div
+                      onClick={handleOpenOndigu}
+                      className="group cursor-pointer flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-purple-500/20 via-pink-500/20 to-amber-500/20 border border-pink-400/30 hover:border-pink-300 transition-all shadow-md active:scale-95"
+                    >
+                      <Sparkles className="w-3 h-3 text-amber-300 animate-spin" />
+                      <span className="text-[10px] text-slate-300">
+                        Diseñado por{' '}
+                        <strong className="text-white font-extrabold group-hover:text-pink-300 underline underline-offset-2">
+                          {party.designerName}
+                        </strong>
+                      </span>
+                      <ExternalLink className="w-2.5 h-2.5 text-slate-400 group-hover:text-white" />
+                    </div>
+
+                    <button
+                      onClick={handleContactOndigu}
+                      className="mt-1 text-[9px] font-bold text-pink-300/90 hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <span>✨ ¿Quieres una invitación como esta para tu evento? Toca aquí</span>
                     </button>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Bottom Slide Navigation Bar */}
-            <div className="w-full flex items-center justify-between pt-2 px-2 text-xs text-slate-400 z-30">
-              <button
-                onClick={() => {
-                  if (currentSlide > 0) goToSlide(currentSlide - 1);
-                }}
-                disabled={currentSlide === 0}
-                className={`flex items-center gap-1 py-1 px-3 rounded-full bg-black/40 border border-white/15 text-white active:scale-95 transition-all ${
-                  currentSlide === 0 ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'
-                }`}
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-                <span>Anterior</span>
-              </button>
+            {/* =========================================================
+                BOTTOM INTERACTIVE WISHES / REACTIONS BAR
+                ========================================================= */}
+            <div className="w-full flex items-center justify-between pt-1 px-1 z-30">
+              <div className="flex items-center gap-1.5 bg-black/50 backdrop-blur-md px-2 py-1 rounded-full border border-white/15">
+                <span className="text-[9px] font-bold text-slate-400 hidden sm:inline">Deseos:</span>
+                {REACTIONS.map((r, i) => (
+                  <button
+                    key={i}
+                    onClick={(e) => handleSendReaction(r, e)}
+                    title={r.label}
+                    className="w-6 h-6 rounded-full hover:scale-125 active:scale-95 transition-transform flex items-center justify-center text-sm cursor-pointer"
+                  >
+                    {r.emoji}
+                  </button>
+                ))}
+              </div>
 
-              <span className="text-[11px] font-bold text-slate-300">
-                {currentSlide + 1} / {SLIDE_DURATIONS.length}
-              </span>
+              {/* Navigation controls */}
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => {
+                    if (currentSlide > 0) goToSlide(currentSlide - 1);
+                  }}
+                  disabled={currentSlide === 0}
+                  className={`p-1.5 rounded-full bg-black/40 border border-white/15 text-white active:scale-95 transition-all ${
+                    currentSlide === 0 ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'
+                  }`}
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
 
-              <button
-                onClick={() => {
-                  if (currentSlide < SLIDE_DURATIONS.length - 1) goToSlide(currentSlide + 1);
-                }}
-                disabled={currentSlide === SLIDE_DURATIONS.length - 1}
-                className={`flex items-center gap-1 py-1 px-3 rounded-full bg-black/40 border border-white/15 text-white active:scale-95 transition-all ${
-                  currentSlide === SLIDE_DURATIONS.length - 1 ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'
-                }`}
-              >
-                <span>Siguiente</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
+                <span className="text-[10px] font-bold text-slate-300 px-1">
+                  {currentSlide + 1}/{SLIDE_DURATIONS.length}
+                </span>
+
+                <button
+                  onClick={() => {
+                    if (currentSlide < SLIDE_DURATIONS.length - 1) goToSlide(currentSlide + 1);
+                  }}
+                  disabled={currentSlide === SLIDE_DURATIONS.length - 1}
+                  className={`p-1.5 rounded-full bg-black/40 border border-white/15 text-white active:scale-95 transition-all ${
+                    currentSlide === SLIDE_DURATIONS.length - 1 ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'
+                  }`}
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
+        {/* Floating Toast Notification */}
+        {reactionToast && (
+          <div className="absolute top-18 left-1/2 -translate-x-1/2 z-50 py-2 px-4 rounded-full bg-gradient-to-r from-pink-600 to-purple-600 text-white text-xs font-bold shadow-2xl flex items-center gap-2 animate-bounce border border-pink-300/40">
+            <Heart className="w-4 h-4 fill-white" />
+            <span>{reactionToast}</span>
+          </div>
+        )}
+
         {/* Link Copied Notification */}
         {copiedLink && (
-          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 py-2 px-4 rounded-full bg-emerald-600 text-white text-xs font-bold shadow-2xl flex items-center gap-2 animate-bounce">
+          <div className="absolute top-18 left-1/2 -translate-x-1/2 z-50 py-2 px-4 rounded-full bg-emerald-600 text-white text-xs font-bold shadow-2xl flex items-center gap-2 animate-bounce">
             <CheckCircle2 className="w-4 h-4" />
             <span>¡Enlace copiado para enviar por WhatsApp!</span>
+          </div>
+        )}
+
+        {/* Address Copied Notification */}
+        {copiedAddress && (
+          <div className="absolute top-18 left-1/2 -translate-x-1/2 z-50 py-2 px-4 rounded-full bg-blue-600 text-white text-xs font-bold shadow-2xl flex items-center gap-2 animate-bounce">
+            <Copy className="w-4 h-4" />
+            <span>¡Dirección copiada al portapapeles!</span>
           </div>
         )}
       </div>
