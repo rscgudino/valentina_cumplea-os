@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+:root {
+  --bg-dark: #08090d;
+  --bg-studio: #10121a;
+  --silver-light: #f8fafc;
+  --silver-metallic: #e2e8f0;
+  --silver-glow: rgba(226, 232, 240, 0.5);
+  --denim-blue: #4f709c;
+  --denim-light: #829fc4;
+  --pink-accent: #f472b6;
+  --pink-soft: rgba(244, 114, 182, 0.25);
+  --lilac-accent: #c084fc;
+  --gold-accent: #fcd34d;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #050608;
+  color: #f8fafc;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.font-editorial {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+.font-script {
+  font-family: 'Alex Brush', cursive;
+}
+
+/* Studio Spotlights */
+@keyframes floatGentle {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(0.4deg);
+  }
+}
+
+.animate-float {
+  animation: floatGentle 4.5s ease-in-out infinite;
+}
+
+@keyframes sweepGleam {
+  0% {
+    transform: translateX(-150%) skewX(-25deg);
+  }
+  40%, 100% {
+    transform: translateX(250%) skewX(-25deg);
+  }
+}
+
+.gleam-effect::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+  animation: sweepGleam 3s infinite;
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.05);
+  }
+}
+
+.animate-glow {
+  animation: pulseGlow 2.5s ease-in-out infinite;
+}
+
+/* Glassmorphism Cards */
+.glass-vip-card {
+  background: rgba(18, 20, 28, 0.82);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(244, 114, 182, 0.12);
+}
+
+/* Custom Scrollbar for overflow areas */
+::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+}
