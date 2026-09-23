@@ -15,19 +15,18 @@ import {
   Share2,
   Settings,
   X,
-  Upload,
   CheckCircle2,
-  Music,
-  PartyPopper,
   Play,
   Pause,
   RotateCcw,
   ChevronLeft,
   ChevronRight,
-  MessageCircle
+  MessageCircle,
+  Music,
+  Upload
 } from 'lucide-react';
 
-// Visual assets: Valentina and her favorite doll YoYa: Sparkle
+// Visual assets: Valentina and her favorite doll YoYa: Sparkle (permanently integrated)
 import yoyaFrontImg from './assets/images/yoya_sparkle_front_1790183065047.jpg';
 import yoyaPortraitImg from './assets/images/yoya_sparkle_portrait_1790183121361.jpg';
 import yoyaEarmuffsImg from './assets/images/yoya_sparkle_earmuffs_1790183089432.jpg';
@@ -50,9 +49,7 @@ interface PartyDetails {
   whatsappMessage: string;
   mapsUrl: string;
   countdownDate: string;
-  customPhotoUrl?: string;
-  customAudioUrl?: string;
-  customAudioName?: string;
+  audioUrl?: string;
 }
 
 const initialPartyDetails: PartyDetails = {
@@ -72,6 +69,7 @@ const initialPartyDetails: PartyDetails = {
   whatsappMessage: '¡Hola! Confirmo con mucha alegría mi asistencia al 9no cumpleaños de Valentina en Calle Manuel Ocampo 2443 🎀🎂🎉',
   mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Calle+Manuel+Ocampo+2443',
   countdownDate: '2026-10-03T17:00:00',
+  audioUrl: '/assets/audio/cancion_valentina.mp3',
 };
 
 // Reading durations for each slide in milliseconds
@@ -87,7 +85,7 @@ const SLIDE_DURATIONS = [
 export default function App() {
   const [party, setParty] = useState<PartyDetails>(() => {
     try {
-      const saved = localStorage.getItem('valentina_invitation_v5');
+      const saved = localStorage.getItem('valentina_invitation_v7');
       if (saved) {
         return {
           ...initialPartyDetails,
@@ -109,22 +107,22 @@ export default function App() {
   const [ambientGlow, setAmbientGlow] = useState<boolean>(false);
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
   const [showSettings, setShowSettings] = useState<boolean>(false);
+  const [uploadSuccess, setUploadSuccess] = useState<boolean>(false);
 
   // References
-  const photoInputRef = useRef<HTMLInputElement | null>(null);
-  const audioInputRef = useRef<HTMLInputElement | null>(null);
-  const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const confettiListRef = useRef<any[]>([]);
   const particlesListRef = useRef<any[]>([]);
+  const audioElementRef = useRef<HTMLAudioElement | null>(null);
+  const audioInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Web Audio Synthesizer Refs
+  // Web Audio Synthesizer (Fallback in case MP3 is still loading)
   const audioCtxRef = useRef<AudioContext | null>(null);
   const synthIntervalRef = useRef<number | null>(null);
   const synthGainRef = useRef<GainNode | null>(null);
 
-  // Active portrait image
-  const activePortrait = party.customPhotoUrl || vipPortraitImg;
+  // Active portrait image: Permanently built-in Valentina VIP Portrait
+  const activePortrait = vipPortraitImg;
 
   // Real-time Countdown state
   const [timeLeft, setTimeLeft] = useState({
@@ -137,7 +135,7 @@ export default function App() {
   // Save changes to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem('valentina_invitation_v5', JSON.stringify(party));
+      localStorage.setItem('valentina_invitation_v7', JSON.stringify(party));
     } catch (e) {}
   }, [party]);
 
@@ -284,7 +282,7 @@ export default function App() {
     };
   }, []);
 
-  // Web Audio Synthesizer (Upbeat Birthday Pop Song at 128 BPM)
+  // Web Audio Synthesizer (Upbeat Pop Song at 128 BPM - Fallback)
   const initWebAudio = () => {
     if (audioCtxRef.current) return;
     try {
@@ -307,7 +305,6 @@ export default function App() {
       audioCtxRef.current.resume();
     }
 
-    // Melodic celebration notes: G4, G4, A4, G4, C5, B4, G4, G4, A4, G4, D5, C5
     const melody = [
       392.00, 392.00, 440.00, 392.00, 523.25, 493.88,
       392.00, 392.00, 440.00, 392.00, 587.33, 523.25,
@@ -339,7 +336,7 @@ export default function App() {
       osc.start(t);
       osc.stop(t + 0.24);
 
-      // Bass Kick on every 4 steps
+      // Bass Kick
       if (noteStep % 4 === 0) {
         const kickOsc = ctx.createOscillator();
         const kickGain = ctx.createGain();
@@ -356,7 +353,7 @@ export default function App() {
         kickOsc.stop(t + 0.15);
       }
 
-      // Snare / Clap on beat 2 & 4
+      // Snare / Clap
       if (noteStep % 4 === 2) {
         const snareOsc = ctx.createOscillator();
         const snareGain = ctx.createGain();
@@ -384,11 +381,20 @@ export default function App() {
     }
   };
 
-  const playMusic = () => {
-    initWebAudio();
-    if (party.customAudioUrl && audioElementRef.current) {
-      audioElementRef.current.play().catch(() => {});
+  // Play official song
+  const playOfficialMusic = () => {
+    if (audioElementRef.current) {
+      audioElementRef.current.play()
+        .then(() => {
+          stopSynthCelebration();
+        })
+        .catch(() => {
+          // If HTML5 audio is blocked or file not ready, use synthesizer
+          initWebAudio();
+          startSynthCelebration();
+        });
     } else {
+      initWebAudio();
       startSynthCelebration();
     }
   };
@@ -406,8 +412,8 @@ export default function App() {
       synthGainRef.current.gain.value = nextMuted ? 0 : 0.3;
     }
 
-    if (!nextMuted && hasStarted && !synthIntervalRef.current && !party.customAudioUrl) {
-      startSynthCelebration();
+    if (!nextMuted && hasStarted) {
+      playOfficialMusic();
     }
   };
 
@@ -423,14 +429,12 @@ export default function App() {
       setSlideProgress((prev) => {
         const next = prev + increment;
         if (next >= 100) {
-          // Slide finished! Advance to next slide with smooth cinematic crossfade
           if (currentSlide < SLIDE_DURATIONS.length - 1) {
             triggerSoftTransition();
             triggerConfetti(30);
             setCurrentSlide((s) => s + 1);
             return 0;
           } else {
-            // Reached last slide, stay at 100% and burst celebratory confetti!
             triggerConfetti(50);
             return 100;
           }
@@ -457,55 +461,43 @@ export default function App() {
     setCurrentSlide(0);
     setSlideProgress(0);
     triggerConfetti(70);
-    playMusic();
+    playOfficialMusic();
   };
 
   // Replay presentation from slide 0
   const handleReplay = () => {
     goToSlide(0);
-    if (!party.customAudioUrl && !synthIntervalRef.current) {
-      startSynthCelebration();
-    }
+    playOfficialMusic();
   };
 
-  // Handle Photo Upload
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Admin one-time upload: Saves MP3 file permanently to project server and local state
+  const handleSaveAudioFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      if (base64) {
-        setParty((prev) => ({ ...prev, customPhotoUrl: base64 }));
-        triggerSoftTransition();
-        triggerConfetti(50);
-      }
-    };
-    reader.readAsDataURL(file);
-  };
+    try {
+      // 1. Send file to Vite dev server to save permanently in public/assets/audio/cancion_valentina.mp3
+      await fetch('/api/save-audio', {
+        method: 'POST',
+        body: file,
+      });
+    } catch (err) {}
 
-  // Handle Audio Upload
-  const handleAudioUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const url = URL.createObjectURL(file);
-    stopSynthCelebration();
-
-    setParty((prev) => ({
-      ...prev,
-      customAudioUrl: url,
-      customAudioName: file.name,
-    }));
+    // 2. Also create blob URL so it plays instantly right now
+    const localUrl = URL.createObjectURL(file);
+    setParty((prev) => ({ ...prev, audioUrl: localUrl }));
 
     if (audioElementRef.current) {
-      audioElementRef.current.src = url;
-      audioElementRef.current.loop = true;
-      audioElementRef.current.play().catch(() => {});
+      audioElementRef.current.src = localUrl;
+      audioElementRef.current.load();
+      if (hasStarted) {
+        audioElementRef.current.play().catch(() => {});
+      }
     }
 
-    triggerConfetti(40);
+    setUploadSuccess(true);
+    triggerConfetti(50);
+    setTimeout(() => setUploadSuccess(false), 3500);
   };
 
   // WhatsApp confirmation: Direct link to 1164270908 (+5491164270908)
@@ -552,28 +544,21 @@ export default function App() {
 
   return (
     <div className="relative w-full h-screen bg-[#040508] flex items-center justify-center overflow-hidden select-none">
-      {/* Hidden File Inputs */}
-      <input
-        type="file"
-        ref={photoInputRef}
-        onChange={handlePhotoUpload}
-        accept="image/*"
-        className="hidden"
+      {/* Permanent Audio Element playing Valentina's Official Birthday Song */}
+      <audio
+        ref={audioElementRef}
+        src={party.audioUrl || '/assets/audio/cancion_valentina.mp3'}
+        loop
+        preload="auto"
       />
+
+      {/* Hidden file input for one-click admin audio persistence */}
       <input
         type="file"
         ref={audioInputRef}
-        onChange={handleAudioUpload}
+        onChange={handleSaveAudioFile}
         accept="audio/*"
         className="hidden"
-      />
-
-      {/* HTML5 Audio Element for uploaded sound track */}
-      <audio
-        ref={audioElementRef}
-        src={party.customAudioUrl || undefined}
-        loop
-        preload="auto"
       />
 
       {/* Mobile-first Phone Container */}
@@ -633,7 +618,7 @@ export default function App() {
         )}
 
         {/* =========================================================
-            HEADER TOOLBAR (SOUND, PLAY/PAUSE, PHOTO, SETTINGS)
+            HEADER TOOLBAR (CLEAN & SLEEK FOR GUESTS)
             ========================================================= */}
         <div className="absolute top-6 left-3 right-3 z-40 flex items-center justify-between pointer-events-auto">
           {/* Sound Toggle + Animated Equalizer */}
@@ -677,26 +662,8 @@ export default function App() {
             </button>
           )}
 
-          {/* Right Action Icons */}
+          {/* Right Action Icons (Share & Discrete Settings) */}
           <div className="flex items-center gap-1.5">
-            {/* Music Uploader */}
-            <button
-              onClick={() => audioInputRef.current?.click()}
-              title="Cargar música de Valentina (.mp3)"
-              className="w-8 h-8 rounded-full bg-purple-500/25 backdrop-blur-md border border-purple-400/40 flex items-center justify-center text-purple-300 shadow-lg active:scale-95 transition-transform cursor-pointer"
-            >
-              <Music className="w-3.5 h-3.5" />
-            </button>
-
-            {/* Photo Uploader */}
-            <button
-              onClick={() => photoInputRef.current?.click()}
-              title="Cambiar foto de Valentina"
-              className="w-8 h-8 rounded-full bg-pink-500/25 backdrop-blur-md border border-pink-400/40 flex items-center justify-center text-pink-300 shadow-lg active:scale-95 transition-transform cursor-pointer"
-            >
-              <Upload className="w-3.5 h-3.5" />
-            </button>
-
             {/* Share Link */}
             <button
               onClick={handleShare}
@@ -706,11 +673,11 @@ export default function App() {
               <Share2 className="w-3.5 h-3.5 text-slate-200" />
             </button>
 
-            {/* Settings */}
+            {/* Discrete Settings for Admin */}
             <button
               onClick={() => setShowSettings(true)}
               title="Ajustes"
-              className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shadow-lg active:scale-95 transition-transform cursor-pointer"
+              className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shadow-lg active:scale-95 transition-transform cursor-pointer opacity-70 hover:opacity-100"
             >
               <Settings className="w-3.5 h-3.5 text-slate-200" />
             </button>
@@ -723,7 +690,6 @@ export default function App() {
         <div className="relative flex-1 w-full overflow-hidden">
           {/* -------------------------------------------------------
               COVER SCREEN: VALENTINA Y LA MUÑECA INICIAL
-              (Crossfades smoothly out when started)
               ------------------------------------------------------- */}
           <div
             className={`absolute inset-0 flex flex-col items-center justify-between p-5 pt-18 pb-8 text-center transition-all duration-700 ease-in-out ${
@@ -747,7 +713,7 @@ export default function App() {
 
             {/* Main Stage: Valentina and her favorite doll YoYa: Sparkle right side-by-side */}
             <div className="relative w-full max-w-[320px] h-[360px] flex items-center justify-center my-auto">
-              {/* YoYa: Sparkle Doll (Her Favorite!) */}
+              {/* YoYa: Sparkle Doll */}
               <div className="absolute left-2 w-42 h-[320px] rounded-[26px] overflow-hidden border-2 border-white/40 shadow-[0_20px_45px_rgba(0,0,0,0.9)] -rotate-4 z-10 bg-black">
                 <img
                   src={yoyaFrontImg}
@@ -1073,7 +1039,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Final WhatsApp Action Button (Requested: 1164270908) */}
+                {/* Final WhatsApp Action Button (11 6427-0908) */}
                 <div className="w-full max-w-[330px] flex flex-col gap-2">
                   <button
                     onClick={handleWhatsApp}
@@ -1156,14 +1122,22 @@ export default function App() {
           </div>
         )}
 
-        {/* Settings Drawer */}
+        {/* Audio Saved Notification */}
+        {uploadSuccess && (
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 py-2.5 px-4 rounded-full bg-pink-600 text-white text-xs font-bold shadow-2xl flex items-center gap-2 animate-bounce">
+            <Sparkles className="w-4 h-4" />
+            <span>¡Canción de Valentina guardada con éxito!</span>
+          </div>
+        )}
+
+        {/* Settings Drawer (Cleaned: Organizer can set the song permanently) */}
         {showSettings && (
           <div className="absolute inset-0 bg-black/85 backdrop-blur-md z-50 flex flex-col justify-end">
             <div className="bg-[#121520] border-t border-white/20 rounded-t-[32px] p-6 max-h-[85vh] overflow-y-auto">
               <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-4">
                 <div className="text-sm font-bold tracking-wider text-white flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-pink-400" />
-                  <span>Personalizar Invitación</span>
+                  <span>Configuración de la Invitación</span>
                 </div>
                 <button
                   onClick={() => setShowSettings(false)}
@@ -1173,47 +1147,25 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Audio Uploader Section */}
-              <div className="mb-4 p-3 rounded-2xl bg-purple-500/10 border border-purple-400/30 flex items-center justify-between">
+              {/* One-click Audio Saver for Valentina's song */}
+              <div className="mb-4 p-3.5 rounded-2xl bg-gradient-to-r from-pink-500/20 to-purple-500/20 border border-pink-400/40 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-400/40 flex items-center justify-center text-purple-300">
-                    <Music className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-xl bg-pink-500/30 border border-pink-400/50 flex items-center justify-center text-pink-300">
+                    <Music className="w-5 h-5 animate-pulse" />
                   </div>
                   <div>
-                    <div className="text-xs font-bold text-white">Música de fondo</div>
-                    <div className="text-[10px] text-slate-300 truncate max-w-[170px]">
-                      {party.customAudioName || 'Música de fiesta activa'}
+                    <div className="text-xs font-bold text-white">Canción de Valentina</div>
+                    <div className="text-[10px] text-pink-200">
+                      Guardar el archivo de música que tienes
                     </div>
                   </div>
                 </div>
                 <button
                   onClick={() => audioInputRef.current?.click()}
-                  className="px-3 py-1.5 rounded-full bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center gap-1 cursor-pointer shadow-md"
+                  className="px-3 py-1.5 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 text-white text-xs font-bold flex items-center gap-1 cursor-pointer shadow-lg active:scale-95 transition-transform"
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  <span>Subir audio</span>
-                </button>
-              </div>
-
-              {/* Photo Upload Section */}
-              <div className="mb-4 p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl overflow-hidden border border-pink-400/50">
-                    <img src={activePortrait} alt="Current" className="w-full h-full object-cover object-top" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-white">Foto de Valentina</div>
-                    <div className="text-[10px] text-slate-400">
-                      {party.customPhotoUrl ? 'Foto personalizada' : 'Retrato VIP'}
-                    </div>
-                  </div>
-                </div>
-                <button
-                  onClick={() => photoInputRef.current?.click()}
-                  className="px-3 py-1.5 rounded-full bg-pink-500 hover:bg-pink-600 text-white text-xs font-bold flex items-center gap-1 cursor-pointer"
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                  <span>Subir foto</span>
+                  <span>Guardar</span>
                 </button>
               </div>
 
@@ -1233,6 +1185,19 @@ export default function App() {
                       })
                     }
                     className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-pink-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-1">
+                    Enlace de Audio Directo (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="https://.../cancion.mp3"
+                    value={party.audioUrl}
+                    onChange={(e) => setParty({ ...party, audioUrl: e.target.value })}
+                    className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-pink-400 font-mono"
                   />
                 </div>
 
